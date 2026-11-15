@@ -87,9 +87,16 @@ def e(value):
 
 
 def csv_cell(value):
-    """Neutralise spreadsheet formulas in text that people typed."""
+    """Prefix potentially executable cells without discarding their original text.
+
+    Spreadsheet importers can ignore leading whitespace or a BOM before a formula.
+    This is a conservative export defence, not a guarantee for every spreadsheet.
+    """
     text = "" if value is None else str(value)
-    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+    probe = text.lstrip(" \t\r\n\v\f\ufeff")
+    if text[:1] in ("\t", "\r", "\n") or probe[:1] in ("=", "+", "-", "@"):
+        return "'" + text
+    return text
 
 
 def items_csv(items):

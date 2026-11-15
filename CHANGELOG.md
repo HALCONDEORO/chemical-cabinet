@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CSV export: cells that start with a formula character after spaces, line breaks or a byte order mark are now prefixed with an apostrophe too. The original text is kept. This is a conservative defence, not a promise for every spreadsheet program. See docs/EXPORTING.md.
+
 ## 0.1.1 - 2026-11-15
 
 - Editing a product from a search, filter or page now returns to that same view after saving, and the edit page has a "Back to the list" link.
