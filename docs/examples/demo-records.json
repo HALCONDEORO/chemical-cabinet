@@ -1,0 +1,16 @@
+[
+  {
+    "name": "Example cleaner A (demo)",
+    "location": "Shelf A (demo)",
+    "quantity": "2 x 5 L",
+    "opened_on": "2026-01-10",
+    "expires_on": "2026-02-01",
+    "notes": "Invented training record (demo)"
+  },
+  {
+    "name": "Example cleaner B (demo)",
+    "location": "Shelf B (demo)",
+    "quantity": "1 bottle",
+    "notes": "Invented training record (demo)"
+  }
+]
