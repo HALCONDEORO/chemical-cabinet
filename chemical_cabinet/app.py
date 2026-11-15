@@ -203,6 +203,14 @@ def make_handler(data_dir, allowed_hosts=()):
             fh.write(data)
         return name
 
+    def remove_files(*names):
+        for n in names:
+            if n and SAFE_NAME.match(n):
+                try:
+                    os.remove(os.path.join(files_dir, n))
+                except OSError:
+                    pass
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "chemical-cabinet"
 
@@ -308,6 +316,7 @@ def make_handler(data_dir, allowed_hosts=()):
                     fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
                     if not self.csrf_ok(fields.get("csrf")):
                         return self.send(403, b"missing or wrong form token", "text/plain")
+                    photo = sds = None
                     try:
                         photo = save_file(files.get("photo"), PHOTO_TYPES)
                         sds = save_file(files.get("sds"), SDS_TYPES)
@@ -315,12 +324,15 @@ def make_handler(data_dir, allowed_hosts=()):
                                     fields.get("quantity", ""), fields.get("notes", ""),
                                     fields.get("opened_on"), fields.get("expires_on"), photo, sds)
                     except ValueError as exc:
+                        remove_files(photo, sds)
                         return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
                     self.redirect("/")
                 elif path.startswith("/edit/") and path[6:].isdigit():
                     fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
                     if not self.csrf_ok(fields.get("csrf")):
                         return self.send(403, b"missing or wrong form token", "text/plain")
+                    photo = sds = None
+                    old = db.get_item(con, int(path[6:]))
                     try:
                         photo = save_file(files.get("photo"), PHOTO_TYPES)
                         sds = save_file(files.get("sds"), SDS_TYPES)
@@ -328,9 +340,13 @@ def make_handler(data_dir, allowed_hosts=()):
                                        fields.get("quantity", ""), fields.get("notes", ""),
                                        fields.get("opened_on"), fields.get("expires_on"), photo, sds)
                     except KeyError:
+                        remove_files(photo, sds)
                         return self.send(404, b"not found", "text/plain")
                     except ValueError as exc:
+                        remove_files(photo, sds)
                         return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
+                    if old is not None:
+                        remove_files(old["photo"] if photo else None, old["sds"] if sds else None)
                     self.redirect("/")
                 elif path.startswith("/retire/"):
                     form = {k: v[0] for k, v in parse_qs(body.decode("utf-8", "replace")).items()}
