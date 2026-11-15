@@ -113,10 +113,16 @@ def retire_item(con, item_id, reason="", method="", today=None):
         raise KeyError(item_id)
     if row["retired_on"]:
         raise ValueError("already retired")
-    con.execute("UPDATE items SET retired_on=? WHERE id=?", (day, item_id))
-    con.execute("INSERT INTO retirements(item_id, retired_on, reason, method) VALUES (?,?,?,?)",
-                (item_id, day, reason.strip(), method.strip()))
-    con.commit()
+    # Atomic replacement of the active state, not a grant from the earlier read.
+    # Another connection may have retired the item while this call was waiting.
+    with con:
+        changed = con.execute(
+            "UPDATE items SET retired_on=? WHERE id=? AND retired_on IS NULL",
+            (day, item_id))
+        if changed.rowcount != 1:
+            raise ValueError("already retired")
+        con.execute("INSERT INTO retirements(item_id, retired_on, reason, method) VALUES (?,?,?,?)",
+                    (item_id, day, reason.strip(), method.strip()))
 
 
 def active_items(con):
