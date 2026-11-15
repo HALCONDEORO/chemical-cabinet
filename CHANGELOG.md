@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Cabinet page: each product is an article with its own heading; the Edit, Safety data sheet and Retire controls get names that include the product name; the skip link moves focus to the main content. Checked once in headless Chrome and with structural tests; not tested with screen readers, and not a WCAG audit.
+
 - CSV export: cells that start with a formula character after spaces, line breaks or a byte order mark are now prefixed with an apostrophe too. The original text is kept. This is a conservative defence, not a promise for every spreadsheet program. See docs/EXPORTING.md.
 
 - Backups: archives and restored folders are private to the owner (zip 0600, folders 0700, files 0600). Backup creation refuses a source folder that still has the `RESTORE_INCOMPLETE` marker, including a dangling symlink. The size limit now counts the manifest, so verify and restore accept a backup at exactly the limit. Backup creation also checks that the core inventory tables and columns exist; this is a structural check only, not a check that the inventory is sound. No encryption and no locking against concurrent use.
