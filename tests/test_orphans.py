@@ -110,6 +110,29 @@ class OddPathAndUnreadableTest(unittest.TestCase):
             self.assertIn("incomplete", str(cm.exception))
 
 
+class LateUploadTest(unittest.TestCase):
+    def test_upload_committed_after_the_listing_is_not_missing(self):
+        import unittest.mock as mock
+        late = "a" * 16 + ".png"
+        with tempfile.TemporaryDirectory() as d:
+            os.makedirs(os.path.join(d, "files"))
+            con = db.connect(os.path.join(d, "cabinet.sqlite3"))
+            con.close()
+            real = os.scandir
+
+            def scandir_then_upload(path):
+                entries = list(real(path))  # the listing is taken first (empty)
+                open(os.path.join(path, late), "wb").write(b"1")
+                c = db.connect(os.path.join(d, "cabinet.sqlite3"))
+                db.add_item(c, "Demo", photo=late)
+                c.close()
+                return entries
+            with mock.patch.object(orphans.os, "scandir", side_effect=scandir_then_upload):
+                r = orphans.scan(d, 3600)
+            self.assertEqual(r["missing"], [])
+            self.assertEqual(r["orphans"], [])
+
+
 class ConcurrentEditOrphanTest(unittest.TestCase):
     setUp = base.ServerTest.setUp
     tearDown = base.ServerTest.tearDown

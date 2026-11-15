@@ -7,7 +7,7 @@ and the files folder is only listed. Concurrent edits can leave an upload that
 no product refers to (it only uses disk space). A file that was written a
 moment ago may still be waiting for its database row, so files newer than
 --min-age-minutes (default 60) are reported as "recent", never as orphans.
-The report gives file names, sizes and ages only: no product names or notes.
+The scan is a snapshot of a folder that other processes may be changing; it does not defend against someone replacing the folder while it runs. The report gives file names, sizes and ages only: no product names or notes.
 """
 import argparse
 import os
@@ -70,7 +70,10 @@ def scan(data_dir, min_age_seconds=3600, now=None):
         if name in refs:
             continue
         (orphans if age >= min_age_seconds else recent).append((name, size, int(age)))
-    missing = sorted(n for n in refs if n not in on_disk)
+    # A reference that is not in the listing may belong to an upload that was
+    # written and committed after the listing; look at the disk again for it.
+    missing = sorted(n for n in refs if n not in on_disk
+                     and not os.path.lexists(os.path.join(files_dir, n)))
     return {"referenced": len(refs), "on_disk": len(on_disk), "orphans": orphans,
             "recent": recent, "missing": missing, "other": sorted(other)}
 
