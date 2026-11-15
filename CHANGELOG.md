@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Filter checkboxes and the Clear link now have 44px touch targets.
 - Tests that read every page's HTML for keyboard basics: skip link first, no positive tabindex, one h1, language set, every control and image named. It does not drive a real browser.
 - Project site: new captures (filters, current form borders) and text for search, backups and editing.
 - MCP read tools take optional `limit` and `offset`; a second text block says when more records remain. Pages are not a snapshot (see docs/AI-AGENTS.md).
