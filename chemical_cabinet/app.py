@@ -555,7 +555,7 @@ def make_handler(data_dir, allowed_hosts=()):
                         sds = save_file(files.get("sds"), SDS_TYPES)
                     except ValueError as exc:
                         remove_files(photo, sds)
-                        return self.send(400, page("Add item", add_form(self.cookie_token(), values=fields, error=str(exc))))
+                        return self.send(400, page("Add item", add_form(self.cookie_token(), values=fields, error=str(exc) + again)))
                     except Exception:
                         remove_files(photo, sds)
                         raise
@@ -582,12 +582,14 @@ def make_handler(data_dir, allowed_hosts=()):
                              if files.get("photo") or files.get("sds") else "")
                     photo = sds = None
                     old = db.get_item(con, int(path[6:]))
+                    if old is None or old["retired_on"]:
+                        return self.send(404, b"not found", "text/plain")
                     try:
                         photo = save_file(files.get("photo"), PHOTO_TYPES)
                         sds = save_file(files.get("sds"), SDS_TYPES)
                     except ValueError as exc:
                         remove_files(photo, sds)
-                        return self.send(400, page("Edit item", add_form(self.cookie_token(), item=old, view=list_state(fields), values=fields, error=str(exc))))
+                        return self.send(400, page("Edit item", add_form(self.cookie_token(), item=old, view=list_state(fields), values=fields, error=str(exc) + again)))
                     except Exception:
                         remove_files(photo, sds)
                         raise

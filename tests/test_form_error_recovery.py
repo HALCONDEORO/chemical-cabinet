@@ -8,6 +8,7 @@ must say the file has to be chosen again - it cannot be prefilled).
 Expected: 400 with the form re-rendered, submitted values intact, and an
 error that names the field. Files are re-picked explicitly by the user.
 """
+import os
 import unittest
 
 import tests.test_cabinet as base
@@ -67,6 +68,27 @@ class FormErrorRecoveryTest(unittest.TestCase):
         self.assertIn("for the floor machine", page)
         self.assertRegex(page, r"[Nn]ame",
                          "the error must say the name is what is missing")
+
+    def test_edit_missing_item_is_404_without_new_row_or_upload(self):
+        tok = self.token()
+        body, ct = self.multipart(dict(name="", expires_on="bad", csrf=tok), {"sds": ("sheet.pdf", "application/pdf", b"%PDF-1.4 demo")})
+        status, _, _ = self.post("/edit/999", body, ct, tok)
+        self.assertEqual(status, 404)
+        status, page, _ = self.req("GET", "/", headers=self.host())
+        self.assertNotIn("<article", page.decode())
+        self.assertEqual(os.listdir(os.path.join(self.tmp.name, "files")), [])
+
+    def test_bad_file_type_with_good_photo_asks_to_choose_files_again(self):
+        tok = self.token()
+        png = b"\x89PNG\r\n\x1a\n" + b"0" * 32
+        for path, setup in (("/add", False), ("/edit/1", True)):
+            if setup:
+                self.add_one(tok)
+            fields = dict(name="Spray", csrf=tok)
+            body, ct = self.multipart(fields, {"photo": ("p.png", "image/png", png), "sds": ("s.pdf", "application/pdf", b"not a pdf")})
+            status, page, _ = self.post(path, body, ct, tok)
+            self.assertEqual(status, 400, path)
+            self.assertIn("choose the photo or sheet again", page.decode(), path)
 
 
 if __name__ == "__main__":
