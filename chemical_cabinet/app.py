@@ -271,15 +271,18 @@ def render_list(items, token='', view=None):
     return "".join(out)
 
 
-def add_form(token, item=None, view=None):
+def add_form(token, item=None, view=None, values=None, error=None):
     v = (lambda k: e(item[k] or "")) if item else (lambda k: "")
+    if values:
+        v = (lambda k: e(values.get(k) or ""))
     action = "/edit/%d" % item["id"] if item else "/add"
     keep = (" (leave empty to keep the current file)" if item else "")
     args = list_args(*view) if view else []
     hidden = "".join("<input type=hidden name='%s' value='%s'>" % (k, e(val)) for k, val in args)
     back = ("<p><a href='/?%s'>Back to the list</a></p>" % e(urlencode(args)) if args
             else "<p><a href='/'>Back to the list</a></p>") if item else ""
-    return (back + "<form method=post action='" + action + "' enctype='multipart/form-data'>"
+    err = ("<p id=form-error role=alert>" + e(error) + "</p>") if error else ""
+    return (back + err + "<form method=post action='" + action + "' enctype='multipart/form-data'>"
             "<input type=hidden name=csrf value='" + token + "'>" + hidden +
             "<label for=f-name>Name</label><input id=f-name name=name required autocomplete=off value='" + v("name") + "'>"
             "<label for=f-loc>Location</label><input id=f-loc name=location value='" + v("location") + "'>"
@@ -290,6 +293,27 @@ def add_form(token, item=None, view=None):
             "<label for=f-photo>Photo" + keep + "</label><input id=f-photo type=file name=photo accept='image/*' capture=environment>"
             "<label for=f-sds>Safety data sheet (PDF)" + keep + "</label><input id=f-sds type=file name=sds accept='application/pdf'>"
             "<button>Save</button></form>")
+
+
+def form_errors(fields):
+    """Field-named form errors, from the shared model validation."""
+    errs = []
+    for key, label in (("opened_on", "Opened on"), ("expires_on", "Expires on")):
+        raw = (fields.get(key) or "").strip()
+        if raw:
+            try:
+                db.parse_date(raw)
+            except ValueError:
+                errs.append("%s: use the date format YYYY-MM-DD." % label)
+    try:
+        db.validate_item(fields.get("name", ""), fields.get("location", ""),
+                         fields.get("quantity", ""), fields.get("notes", ""),
+                         fields.get("opened_on"), fields.get("expires_on"))
+    except ValueError as exc:
+        msg = str(exc)
+        if msg == "name is required" or not errs:
+            errs.append(msg)
+    return errs
 
 
 def parse_multipart(content_type, body):
@@ -523,16 +547,29 @@ def make_handler(data_dir, allowed_hosts=()):
                     fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
                     if not self.csrf_ok(fields.get("csrf")):
                         return self.send(403, b"missing or wrong form token", "text/plain")
+                    again = (" A file you chose was not stored; choose the photo or sheet again."
+                             if files.get("photo") or files.get("sds") else "")
                     photo = sds = None
                     try:
                         photo = save_file(files.get("photo"), PHOTO_TYPES)
                         sds = save_file(files.get("sds"), SDS_TYPES)
+                    except ValueError as exc:
+                        remove_files(photo, sds)
+                        return self.send(400, page("Add item", add_form(self.cookie_token(), values=fields, error=str(exc) + again)))
+                    except Exception:
+                        remove_files(photo, sds)
+                        raise
+                    errs = form_errors(fields)
+                    if errs:
+                        remove_files(photo, sds)
+                        return self.send(400, page("Add item", add_form(self.cookie_token(), values=fields, error=" ".join(errs) + again)))
+                    try:
                         db.add_item(con, fields.get("name", ""), fields.get("location", ""),
                                     fields.get("quantity", ""), fields.get("notes", ""),
                                     fields.get("opened_on"), fields.get("expires_on"), photo, sds)
                     except ValueError as exc:
                         remove_files(photo, sds)
-                        return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
+                        return self.send(400, page("Add item", add_form(self.cookie_token(), values=fields, error=str(exc) + again)))
                     except Exception:
                         remove_files(photo, sds)
                         raise
@@ -541,11 +578,26 @@ def make_handler(data_dir, allowed_hosts=()):
                     fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
                     if not self.csrf_ok(fields.get("csrf")):
                         return self.send(403, b"missing or wrong form token", "text/plain")
+                    again = (" A file you chose was not stored; choose the photo or sheet again."
+                             if files.get("photo") or files.get("sds") else "")
                     photo = sds = None
                     old = db.get_item(con, int(path[6:]))
+                    if old is None or old["retired_on"]:
+                        return self.send(404, b"not found", "text/plain")
                     try:
                         photo = save_file(files.get("photo"), PHOTO_TYPES)
                         sds = save_file(files.get("sds"), SDS_TYPES)
+                    except ValueError as exc:
+                        remove_files(photo, sds)
+                        return self.send(400, page("Edit item", add_form(self.cookie_token(), item=old, view=list_state(fields), values=fields, error=str(exc) + again)))
+                    except Exception:
+                        remove_files(photo, sds)
+                        raise
+                    errs = form_errors(fields)
+                    if errs:
+                        remove_files(photo, sds)
+                        return self.send(400, page("Edit item", add_form(self.cookie_token(), item=old, view=list_state(fields), values=fields, error=" ".join(errs) + again)))
+                    try:
                         db.update_item(con, int(path[6:]), fields.get("name", ""), fields.get("location", ""),
                                        fields.get("quantity", ""), fields.get("notes", ""),
                                        fields.get("opened_on"), fields.get("expires_on"), photo, sds)
@@ -554,7 +606,7 @@ def make_handler(data_dir, allowed_hosts=()):
                         return self.send(404, b"not found", "text/plain")
                     except ValueError as exc:
                         remove_files(photo, sds)
-                        return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
+                        return self.send(400, page("Edit item", add_form(self.cookie_token(), item=old, view=list_state(fields), values=fields, error=str(exc) + again)))
                     except Exception:
                         remove_files(photo, sds)
                         raise
