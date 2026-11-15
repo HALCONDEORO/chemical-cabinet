@@ -160,6 +160,27 @@ class ServerTest(unittest.TestCase):
             self.assertEqual(status, 400)
 
 
+    def test_csv_export_and_review_sheet(self):
+        from chemical_cabinet import db
+        con = db.connect(os.path.join(self.tmp.name, "cabinet.sqlite3"))
+        db.add_item(con, "=HYPERLINK(\"http://x\")", location="Shelf 1", expires_on="2020-01-01")
+        db.add_item(con, "Plain <b>cleaner</b> (demo)", location="Shelf 2")
+        con.close()
+        h = {"Host": "localhost:%d" % self.port}
+        status, body, _ = self.req("GET", "/export.csv", headers=h)
+        self.assertEqual(status, 200)
+        text = body.decode("utf-8-sig")
+        rows = list(__import__("csv").reader(text.splitlines()))
+        self.assertEqual(rows[0][1], "name")
+        self.assertEqual(rows[1][1][0], "'")          # formula neutralised
+        self.assertIn("expired", rows[1][8])
+        status, body, _ = self.req("GET", "/review", headers=h)
+        self.assertEqual(status, 200)
+        self.assertIn("&lt;b&gt;cleaner", body.decode())   # escaped
+        self.assertNotIn("<b>cleaner", body.decode())
+        self.assertEqual(self.req("GET", "/export.csv", headers={"Host": "evil.example"})[0], 403)
+
+
 class HostCheckTest(unittest.TestCase):
     def test_host_ok(self):
         for good in ("localhost", "localhost:8080", "127.0.0.1:1", "[::1]:80", "10.0.0.5", "CABINET.test"):

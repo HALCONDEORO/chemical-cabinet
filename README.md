@@ -30,6 +30,7 @@ Python standard library only. No accounts, no external services, no tracking. MI
 - **Photo and safety data sheet.** Take the photo from a phone, attach the PDF sheet to the product.
 - **Review flags.** Expired, expires within 30 days, no expiry date, no safety data sheet, no photo.
 - **Disposal log.** Retire a product with a reason and how it was disposed of.
+- **CSV export and print sheet.** `/export.csv` downloads the inventory (text that starts with `=`, `+`, `-` or `@` is neutralised so spreadsheets do not run it as a formula). `/review` is a printable checklist.
 - **Assistant access.** An optional local [MCP server](docs/AI-AGENTS.md) lets an AI assistant list products and flags.
 
 ![The cabinet page on a phone, with demo products and review flags](docs/assets/app-mobile.png)
