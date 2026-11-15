@@ -32,7 +32,7 @@ CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin
        ".flag{display:inline-block;margin-bottom:.3rem;background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;}"
        ".bad{background:#f2d3c9;color:#6b2412}img{max-width:100%;border-radius:8px}"
        "summary{cursor:pointer;color:#16644f;margin-top:.6rem;min-height:44px;font-weight:600}.note{color:#657579;font-size:.85rem;border-left:3px solid #16644f;padding-left:.8rem}"
-       ".sheet{border-collapse:collapse;width:100%}.sheet th,.sheet td{border:1px solid #d8e0dc;padding:.4rem;text-align:left;font-size:.85rem;vertical-align:top}.chk{width:4rem}"
+       "label{display:block;font-weight:600;color:#183b40;font-size:.9rem}.skip{position:absolute;left:-999px}.skip:focus{left:8px;top:8px;background:#fff;padding:.5rem;z-index:5}.sheet{border-collapse:collapse;width:100%}.sheet th,.sheet td{border:1px solid #d8e0dc;padding:.4rem;text-align:left;font-size:.85rem;vertical-align:top}.chk{width:4rem}"
        "@media print{nav,.noprint,.note{display:none}body{max-width:none;background:#fff}}"
        "@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}")
 
@@ -41,8 +41,8 @@ def page(title, body):
     return ("<!doctype html><html lang=en><meta charset=utf-8>"
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
             "<title>%s</title><style>%s</style>"
-            "<nav><a href='/'>Cabinet</a><a href='/add'>Add</a><a href='/log'>Disposal log</a><a href='/review'>Print sheet</a></nav>"
-            "<h1>%s</h1>%s"
+            "<a class=skip href='#main'>Skip to content</a><nav aria-label=Main><a href='/'>Cabinet</a><a href='/add'>Add</a><a href='/log'>Disposal log</a><a href='/review'>Print sheet</a></nav>"
+            "<main id=main><h1>%s</h1>%s</main>"
             "<p class=note>A tracking aid only. It does not check legal compliance or "
             "chemical compatibility. Follow the safety data sheet and your local rules.</p>"
             % (html.escape(title), CSS, html.escape(title), body)).encode()
@@ -130,8 +130,8 @@ def render_list(items, token=''):
         out.append(
             "<div class=card><b>%s</b> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
             "<details><summary>Retire this product</summary>"
-            "<form method=post action='/retire/%d'><input type=hidden name=csrf value='%s'><input name=reason placeholder='Reason'>"
-            "<input name=method placeholder='How it was disposed of'><button>Retire</button></form></details></div>"
+            "<form method=post action='/retire/%d'><input type=hidden name=csrf value='%s'><input name=reason placeholder='Reason' aria-label='Reason for retiring'>"
+            "<input name=method placeholder='How it was disposed of' aria-label='How it was disposed of'><button>Retire</button></form></details></div>"
             % (e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
                e(it["expires_on"] or "?"), sds, it["id"], token))
     return "".join(out)
@@ -140,11 +140,14 @@ def render_list(items, token=''):
 def add_form(token):
     return ("<form method=post action='/add' enctype='multipart/form-data'>"
             "<input type=hidden name=csrf value='" + token + "'>"
-            "Name<input name=name required>Location<input name=location>Quantity<input name=quantity>"
-            "Notes<textarea name=notes></textarea>Opened on<input type=date name=opened_on>"
-            "Expires on<input type=date name=expires_on>"
-            "Photo<input type=file name=photo accept='image/*' capture=environment>"
-            "Safety data sheet (PDF)<input type=file name=sds accept='application/pdf'>"
+            "<label for=f-name>Name</label><input id=f-name name=name required autocomplete=off>"
+            "<label for=f-loc>Location</label><input id=f-loc name=location>"
+            "<label for=f-qty>Quantity</label><input id=f-qty name=quantity>"
+            "<label for=f-notes>Notes</label><textarea id=f-notes name=notes></textarea>"
+            "<label for=f-open>Opened on</label><input id=f-open type=date name=opened_on>"
+            "<label for=f-exp>Expires on</label><input id=f-exp type=date name=expires_on>"
+            "<label for=f-photo>Photo</label><input id=f-photo type=file name=photo accept='image/*' capture=environment>"
+            "<label for=f-sds>Safety data sheet (PDF)</label><input id=f-sds type=file name=sds accept='application/pdf'>"
             "<button>Save</button></form>")
 
 

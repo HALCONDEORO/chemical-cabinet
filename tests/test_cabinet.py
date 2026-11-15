@@ -181,6 +181,40 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("GET", "/export.csv", headers={"Host": "evil.example"})[0], 403)
 
 
+    def test_forms_have_labels(self):
+        h = {"Host": "localhost:%d" % self.port}
+        html_ = self.req("GET", "/add", headers=h)[1].decode()
+        for fid in ("f-name", "f-loc", "f-qty", "f-notes", "f-open", "f-exp", "f-photo", "f-sds"):
+            self.assertIn("for=%s>" % fid, html_)
+            self.assertIn("id=%s " % fid, html_)
+        self.assertIn("<main", html_)
+
+
+class McpProcessTest(unittest.TestCase):
+    """Talk to the real server process over stdio, like an assistant would."""
+
+    def test_stdio_roundtrip(self):
+        import subprocess, sys, json as _json
+        from chemical_cabinet import db
+        with tempfile.TemporaryDirectory() as d:
+            con = db.connect(os.path.join(d, "cabinet.sqlite3"))
+            db.add_item(con, "Demo item", location="Shelf", expires_on="2020-01-01")
+            con.close()
+            root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            proc = subprocess.Popen([sys.executable, "-m", "chemical_cabinet.mcp", "--data", d], cwd=root,
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+            msgs = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+                    {"jsonrpc": "2.0", "id": 2, "method": "tools/list"},
+                    {"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {"name": "review", "arguments": {}}},
+                    {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "add_item", "arguments": {"name": "x"}}}]
+            out, _ = proc.communicate("\n".join(_json.dumps(m) for m in msgs) + "\n", timeout=20)
+            replies = {r["id"]: r for r in map(_json.loads, out.splitlines())}
+            self.assertEqual({t["name"] for t in replies[2]["result"]["tools"]}, {"list_items", "review", "disposal_log"})
+            self.assertIn("expired", replies[3]["result"]["content"][0]["text"])
+            self.assertTrue("error" in replies[4] or replies[4]["result"].get("isError"))
+            self.assertEqual(proc.returncode, 0)
+
+
 class HostCheckTest(unittest.TestCase):
     def test_host_ok(self):
         for good in ("localhost", "localhost:8080", "127.0.0.1:1", "[::1]:80", "10.0.0.5", "CABINET.test"):
