@@ -76,6 +76,8 @@ def item_dict(row):
 def call_tool(con, name, args, allow_write):
     if not isinstance(args, dict):
         raise ToolError("arguments must be an object")
+    if not isinstance(name, str):
+        raise ToolError("tool name must be a string")
     tools = dict(READ_TOOLS)
     if allow_write:
         tools.update(WRITE_TOOLS)
@@ -132,10 +134,14 @@ def handle(msg, db_path, allow_write):
             tools.update(WRITE_TOOLS)
         result = {"tools": [dict(name=n, **t) for n, t in tools.items()]}
     elif method == "tools/call":
-        params = msg.get("params") or {}
+        params = msg.get("params", {})
+        if (not isinstance(params, dict) or not isinstance(params.get("name"), str)
+                or not isinstance(params.get("arguments", {}), dict)):
+            return {"jsonrpc": "2.0", "id": mid,
+                    "error": {"code": -32602, "message": "expected tool name and object arguments"}}
         con = db.connect(db_path)
         try:
-            data = call_tool(con, params.get("name"), params.get("arguments") or {}, allow_write)
+            data = call_tool(con, params["name"], params.get("arguments", {}), allow_write)
             result = {"content": [{"type": "text", "text": json.dumps(data, indent=2)}], "isError": False}
         except ToolError as exc:
             result = {"content": [{"type": "text", "text": str(exc)}], "isError": True}
