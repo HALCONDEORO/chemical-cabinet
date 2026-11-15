@@ -258,3 +258,38 @@ class BackupTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class BackupCliTest(unittest.TestCase):
+    def run_cli(self, *args):
+        import subprocess, sys
+        return subprocess.run([sys.executable, "-m", "chemical_cabinet.backup", *args],
+                              capture_output=True, text=True)
+
+    def test_refusals_print_one_line_not_a_traceback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp, "not-a-backup.zip")
+            bad.write_bytes(b"not a zip")
+            for args in (("verify", str(bad)), ("verify", str(Path(tmp, "missing.zip"))),
+                         ("restore", str(bad), str(Path(tmp, "out"))),
+                         ("create", str(Path(tmp, "no-such-data")), str(Path(tmp, "b.zip")))):
+                with self.subTest(args=args):
+                    r = self.run_cli(*args)
+                    self.assertEqual(r.returncode, 1)
+                    self.assertTrue(r.stderr.startswith("error: "), r.stderr)
+                    self.assertNotIn("Traceback", r.stderr)
+            self.assertFalse(Path(tmp, "out").exists())
+
+    def test_restore_over_existing_directory_is_refused_cleanly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            data = Path(tmp, "data")
+            (data / "files").mkdir(parents=True)
+            db.connect(str(data / "cabinet.sqlite3")).close()
+            archive = Path(tmp, "b.zip")
+            self.assertEqual(self.run_cli("create", str(data), str(archive)).returncode, 0)
+            existing = Path(tmp, "existing")
+            existing.mkdir()
+            r = self.run_cli("restore", str(archive), str(existing))
+            self.assertEqual(r.returncode, 1)
+            self.assertNotIn("Traceback", r.stderr)
+            self.assertEqual(list(existing.iterdir()), [])

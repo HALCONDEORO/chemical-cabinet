@@ -14,6 +14,7 @@ import re
 import shutil
 import sqlite3
 import stat
+import sys
 import tempfile
 import time
 import zipfile
@@ -204,13 +205,21 @@ def main(argv=None):
         sub.add_argument("destination")
     subs.add_parser("verify").add_argument("source")
     args = parser.parse_args(argv)
-    if args.command == "create":
-        create_backup(args.source, args.destination)
-    elif args.command == "restore":
-        restore_backup(args.source, args.destination)
-    else:
-        verify_backup(args.source)
+    try:
+        if args.command == "create":
+            create_backup(args.source, args.destination)
+        elif args.command == "restore":
+            restore_backup(args.source, args.destination)
+        else:
+            verify_backup(args.source)
+    except (ValueError, OSError, TimeoutError, zipfile.BadZipFile, sqlite3.Error) as exc:
+        # One clear line instead of a traceback. The refusal itself is unchanged.
+        if isinstance(exc, OSError) and exc.strerror:
+            exc = "%s: %s" % (exc.strerror, exc.filename)
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
