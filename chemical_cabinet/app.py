@@ -17,12 +17,12 @@ PHOTO_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 SDS_TYPES = {"application/pdf": ".pdf"}
 SAFE_NAME = re.compile(r"^[0-9a-f]{16}\.(jpg|png|webp|pdf)$")
 
-CSS = ("body{font-family:system-ui,sans-serif;margin:0;padding:1rem;max-width:42rem;margin:auto}"
+CSS = ("body{font-family:system-ui,sans-serif;margin:0;padding:1rem;max-width:42rem;margin:auto;background:#f7f9fb;color:#16202a}"
        "input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .7rem;padding:.5rem}"
        "button{background:#1d4ed8;color:#fff;border:0;border-radius:.4rem}"
-       ".card{border:1px solid #ccc;border-radius:.5rem;padding:.7rem;margin:.7rem 0}"
+       ".card{background:#fff;border:1px solid #ccc;border-radius:.5rem;padding:.7rem;margin:.7rem 0}"
        ".flag{background:#fde68a;border-radius:.3rem;padding:0 .4rem;margin-right:.3rem;font-size:.85rem}"
-       ".bad{background:#fecaca}img{max-width:100%;border-radius:.4rem}"
+       "summary{cursor:pointer;color:#1d4ed8;margin-top:.5rem}.bad{background:#fecaca}img{max-width:100%;border-radius:.4rem}"
        "nav a{margin-right:1rem}.note{color:#555;font-size:.9rem}")
 
 
@@ -53,8 +53,9 @@ def render_list(items):
         sds = " <a href='/files/%s'>Safety data sheet</a>" % e(it["sds"]) if it["sds"] else ""
         out.append(
             "<div class=card><b>%s</b> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
+            "<details><summary>Retire this product</summary>"
             "<form method=post action='/retire/%d'><input name=reason placeholder='Reason'>"
-            "<input name=method placeholder='How it was disposed of'><button>Retire</button></form></div>"
+            "<input name=method placeholder='How it was disposed of'><button>Retire</button></form></details></div>"
             % (e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
                e(it["expires_on"] or "?"), sds, it["id"]))
     return "".join(out)

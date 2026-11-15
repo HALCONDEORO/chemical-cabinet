@@ -64,7 +64,7 @@ footer{padding:2rem 0;color:var(--mute);font-size:.95rem}
 <pre>git clone https://github.com/HALCONDEORO/chemical-cabinet
 cd chemical-cabinet
 python -m chemical_cabinet --data ./data --port 8080</pre>
-<p>Open <code>http://localhost:8080</code>. Everything is stored in the <code>data</code> folder: copy it to back up.</p>
+<p>Open <code>http://localhost:8080</code> on that computer. To reach it from a phone on the same Wi-Fi, start it with <code>--host 0.0.0.0</code> on a machine in the building and open that machine's address from the phone. Phone cameras in a browser usually need HTTPS, so a reverse proxy with a password and HTTPS is the better setup. Everything is stored in the <code>data</code> folder: copy it to back up.</p>
 <div class="note"><b>No login.</b> The app has no accounts. Keep it on a trusted network, or put it behind a reverse proxy that does authentication and HTTPS. Do not publish it to the internet as is.</div>
 </section>
 <section>
@@ -73,7 +73,7 @@ python -m chemical_cabinet --data ./data --port 8080</pre>
 </section>
 <section>
 <h2>Other open source tools</h2>
-<p>Several free chemical inventory tools already exist, mostly built for university labs. If you run a lab, look at them first. This project aims at something smaller: one cupboard, no database server, nothing to install. We read the others for ideas only and copied none of their code, because most use GPL or AGPL licenses.</p>
+<p>Several free chemical inventory tools already exist, mostly built for university labs. If you run a lab, look at them first. This project aims at something smaller: one cupboard, no database server, nothing to install. We read the others for ideas and copied none of their code. GPL and AGPL code can be reused, but only in a project that accepts those license terms, and this one is MIT for now. A non-commercial license (CC BY-NC-SA) is not an open source license.</p>
 <div class="tablewrap"><table>
 <tr><th>Project</th><th>Aimed at</th><th>License (as listed on its page)</th></tr>
 <tr><td><a href="https://github.com/ICIQ-DMP/open-enventory">open_enventory</a></td><td>Labs: inventory and electronic lab notebook (PHP)</td><td>AGPL (per the US fork listing)</td></tr>

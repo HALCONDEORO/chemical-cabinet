@@ -16,7 +16,11 @@ This is a tracking aid. It does **not** check legal compliance, does not tell yo
 python -m chemical_cabinet --data ./data --port 8080
 ```
 
-Open `http://localhost:8080` from a phone or computer on the same network. The app has **no login**. Do not expose it to the internet directly: keep it on a trusted network or put it behind a reverse proxy that does authentication and HTTPS. Data (SQLite database and uploads) lives in the `--data` folder, so backing it up is copying that folder.
+Open `http://localhost:8080` on the computer that runs it. ### Using it from a phone
+
+By default the app only listens on `127.0.0.1`, so a phone cannot reach it. To use it from a phone on the same Wi-Fi, run it on a computer or small server in the building with `--host 0.0.0.0` (or that machine's LAN address) and open `http://<that machine's address>:8080` on the phone. Only do this on a network you trust, and prefer a reverse proxy that adds a password and HTTPS (taking photos from the browser camera usually needs HTTPS). Never forward the port to the internet.
+
+The app has **no login**. Do not expose it to the internet directly: keep it on a trusted network or put it behind a reverse proxy that does authentication and HTTPS. Data (SQLite database and uploads) lives in the `--data` folder, so backing it up is copying that folder.
 
 Needs Python 3.9 or newer.
 

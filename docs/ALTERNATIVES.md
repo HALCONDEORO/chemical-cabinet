@@ -19,4 +19,6 @@ Most of the above are built for labs and need a database server, a runtime or a 
 
 ## What was reused
 
-No code. The ideas (inventory with expiry, safety data sheet per product, a disposal record) are common to all of them. GPL, AGPL and non-commercial licenses would not allow copying code into an MIT project, so nothing was copied. If you want to reuse something from the MIT-licensed projects, keep their copyright notice.
+No code. The ideas (inventory with expiry, safety data sheet per product, a disposal record) are common to all of them.
+
+Licenses decide what could be reused later. GPL and AGPL code can be reused, but the combined work must then follow the same terms, which does not fit this project's MIT license as it stands. We could change the license of this project if a good reuse case appears. CC BY-NC-SA is a non-commercial license, not an open source one. MIT code can be reused if its copyright notice is kept.
