@@ -1,6 +1,8 @@
 """Tiny mobile-friendly web app. Standard library only, no accounts: run it on a
 trusted network or behind your own reverse proxy with authentication."""
 import argparse
+import csv
+import io
 import hmac
 import html
 import ipaddress
@@ -30,6 +32,8 @@ CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin
        ".flag{display:inline-block;margin-bottom:.3rem;background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;}"
        ".bad{background:#f2d3c9;color:#6b2412}img{max-width:100%;border-radius:8px}"
        "summary{cursor:pointer;color:#16644f;margin-top:.6rem;min-height:44px;font-weight:600}.note{color:#657579;font-size:.85rem;border-left:3px solid #16644f;padding-left:.8rem}"
+       ".sheet{border-collapse:collapse;width:100%}.sheet th,.sheet td{border:1px solid #d8e0dc;padding:.4rem;text-align:left;font-size:.85rem;vertical-align:top}.chk{width:4rem}"
+       "@media print{nav,.noprint,.note{display:none}body{max-width:none;background:#fff}}"
        "@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}")
 
 
@@ -37,7 +41,7 @@ def page(title, body):
     return ("<!doctype html><html lang=en><meta charset=utf-8>"
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
             "<title>%s</title><style>%s</style>"
-            "<nav><a href='/'>Cabinet</a><a href='/add'>Add</a><a href='/log'>Disposal log</a></nav>"
+            "<nav><a href='/'>Cabinet</a><a href='/add'>Add</a><a href='/log'>Disposal log</a><a href='/review'>Print sheet</a></nav>"
             "<h1>%s</h1>%s"
             "<p class=note>A tracking aid only. It does not check legal compliance or "
             "chemical compatibility. Follow the safety data sheet and your local rules.</p>"
@@ -80,6 +84,37 @@ def origin_ok(headers):
 
 def e(value):
     return html.escape(str(value or ""))
+
+
+def csv_cell(value):
+    """Neutralise spreadsheet formulas in text that people typed."""
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+def items_csv(items):
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\r\n")
+    w.writerow(["id", "name", "location", "quantity", "opened_on", "expires_on",
+                "has_photo", "has_safety_data_sheet", "flags", "notes"])
+    for it in items:
+        w.writerow([it["id"], csv_cell(it["name"]), csv_cell(it["location"]), csv_cell(it["quantity"]),
+                    it["opened_on"] or "", it["expires_on"] or "", "yes" if it["photo"] else "no",
+                    "yes" if it["sds"] else "no", csv_cell("; ".join(db.flags(it))), csv_cell(it["notes"])])
+    return ("\ufeff" + buf.getvalue()).encode("utf-8")
+
+
+def review_sheet(items):
+    import datetime
+    rows = "".join(
+        "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class=chk></td></tr>" % (
+            e(it["name"]), e(it["location"]), e(it["quantity"]), e(it["expires_on"] or "?"),
+            e("; ".join(db.flags(it)) or "-")) for it in items)
+    return ("<p>Printed %s. Tick each product once it has been checked on the shelf.</p>"
+            "<table class=sheet><tr><th>Product</th><th>Where</th><th>Qty</th><th>Expires</th>"
+            "<th>Flags</th><th>Checked</th></tr>%s</table>"
+            "<p class=noprint><a href='/export.csv'>Download CSV</a>. To print, use your browser's Print command.</p>"
+            % (datetime.date.today().isoformat(), rows or "<tr><td colspan=6>No items.</td></tr>"))
 
 
 def render_list(items, token=''):
@@ -217,6 +252,11 @@ def make_handler(data_dir, allowed_hosts=()):
                     self.send(200, page("Chemical cabinet", render_list(db.active_items(con), token)), extra=cookie)
                 elif path == "/add":
                     self.send(200, page("Add item", add_form(token)), extra=cookie)
+                elif path == "/export.csv":
+                    self.send(200, items_csv(db.active_items(con)), "text/csv; charset=utf-8",
+                              extra=[("Content-Disposition", "attachment; filename=chemical-cabinet.csv")])
+                elif path == "/review":
+                    self.send(200, page("Review sheet", review_sheet(db.active_items(con))))
                 elif path == "/log":
                     rows = db.retirement_log(con)
                     body = "".join("<div class=card><b>%s</b> - %s<br>%s<br>%s</div>" % (
