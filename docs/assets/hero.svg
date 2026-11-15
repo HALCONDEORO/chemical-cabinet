@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420" role="img" aria-label="Illustration: a cupboard with labelled bottles, a check mark and an expiry warning">
+<title>chemical-cabinet: a tidy cupboard inventory</title>
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#183b40"/><stop offset="1" stop-color="#0f2a2e"/></linearGradient>
+<radialGradient id="glow" cx="0.78" cy="0.5" r="0.5"><stop offset="0" stop-color="#5fb596" stop-opacity="0.38"/><stop offset="1" stop-color="#5fb596" stop-opacity="0"/></radialGradient>
+<linearGradient id="body" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#24565a"/><stop offset="1" stop-color="#1b4448"/></linearGradient>
+</defs>
+<rect width="1280" height="420" fill="url(#bg)"/>
+<rect width="1280" height="420" fill="url(#glow)"/>
+<g font-family="Georgia,Times New Roman,serif">
+<text x="90" y="170" font-size="64" font-weight="700" fill="#ffffff">chemical-cabinet</text>
+<text x="92" y="222" font-size="26" fill="#cfe3dc">A free inventory for the products in your cupboard.</text>
+<text x="92" y="262" font-size="22" fill="#9fcdb8">Photo. Safety data sheet. Expiry date. Disposal log.</text>
+<g transform="translate(92 300)">
+<rect width="170" height="42" rx="21" fill="#1e4a4c" stroke="#5fb596" stroke-opacity="0.6"/><text x="85" y="28" font-size="18" fill="#e3f3ec" text-anchor="middle">MIT licensed</text>
+<rect x="186" width="230" height="42" rx="21" fill="#1e4a4c" stroke="#5fb596" stroke-opacity="0.6"/><text x="301" y="28" font-size="18" fill="#e3f3ec" text-anchor="middle">Python, no packages</text>
+<rect x="432" width="170" height="42" rx="21" fill="#1e4a4c" stroke="#5fb596" stroke-opacity="0.6"/><text x="517" y="28" font-size="18" fill="#e3f3ec" text-anchor="middle">Works with AI</text>
+</g></g>
+<g transform="translate(800 50)">
+<rect width="340" height="320" rx="22" fill="url(#body)" stroke="#8fc7ae" stroke-width="3"/>
+<rect x="18" y="18" width="304" height="284" rx="12" fill="#102a2e"/>
+<rect x="18" y="156" width="304" height="8" fill="#8fc7ae"/>
+<g><rect x="44" y="76" width="44" height="80" rx="8" fill="#7cc5a8"/><rect x="52" y="60" width="28" height="18" rx="4" fill="#e2e8f0"/><rect x="50" y="102" width="32" height="22" rx="3" fill="#eaf6ff"/>
+<rect x="108" y="56" width="52" height="100" rx="10" fill="#dcebe3"/><rect x="118" y="38" width="32" height="20" rx="4" fill="#e2e8f0"/><rect x="116" y="92" width="36" height="28" rx="3" fill="#eafff6"/>
+<rect x="182" y="86" width="40" height="70" rx="8" fill="#c9a56b"/><rect x="188" y="70" width="28" height="18" rx="4" fill="#e2e8f0"/><rect x="188" y="108" width="28" height="20" rx="3" fill="#f3efff"/>
+<rect x="242" y="66" width="54" height="90" rx="10" fill="#e8dcc2"/><rect x="252" y="48" width="34" height="20" rx="4" fill="#e2e8f0"/><rect x="250" y="98" width="38" height="26" rx="3" fill="#fff8e6"/></g>
+<g><rect x="44" y="204" width="60" height="92" rx="10" fill="#a8d4c0"/><rect x="56" y="186" width="36" height="20" rx="4" fill="#e2e8f0"/><rect x="52" y="226" width="44" height="30" rx="3" fill="#eaf4ff"/>
+<rect x="132" y="224" width="46" height="72" rx="8" fill="#5fb596"/><rect x="140" y="208" width="30" height="18" rx="4" fill="#e2e8f0"/>
+<rect x="206" y="196" width="64" height="100" rx="10" fill="#d9775a"/><rect x="220" y="178" width="36" height="20" rx="4" fill="#e2e8f0"/><rect x="214" y="224" width="48" height="32" rx="3" fill="#fff0f0"/></g>
+</g>
+<g transform="translate(1086 52)"><circle r="34" fill="#16644f"/><path d="M-15 1 L-4 13 L16 -12" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(1012 372)"><rect x="-70" y="-24" width="140" height="48" rx="24" fill="#d9775a"/><text y="7" font-family="system-ui,sans-serif" font-size="22" font-weight="700" fill="#2a0f07" text-anchor="middle">expired</text></g>
+</svg>
