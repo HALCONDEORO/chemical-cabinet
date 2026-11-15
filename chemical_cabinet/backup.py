@@ -25,6 +25,18 @@ MAX_TOTAL = 1024 * 1024 * 1024
 MAX_MANIFEST = 2 * 1024 * 1024
 
 
+def _private_opener(path, flags):
+    """Create owner-only files without changing the process-wide umask."""
+    return os.open(path, flags, 0o600)
+
+
+def _require_complete_source(source):
+    # lexists also refuses a dangling marker symlink. A marker is evidence that
+    # recovery did not finish, even when all currently referenced files exist.
+    if os.path.lexists(source / "RESTORE_INCOMPLETE"):
+        raise ValueError("source restore is incomplete; do not back it up")
+
+
 def _hash(path):
     h = hashlib.sha256()
     with open(path, "rb") as src:
@@ -37,8 +49,16 @@ def _references(path):
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as con:
         if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise ValueError("database integrity check failed")
-        # Check both core tables before accepting a restore candidate.
-        con.execute("SELECT item_id, retired_on, reason, method FROM retirements LIMIT 0")
+        # Integrity_check does not establish application compatibility. Require
+        # real core tables and every column read or written by the application;
+        # extra columns/tables remain allowed for additive schema changes.
+        tables = {row[0] for row in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('items', 'retirements')")}
+        if tables != {"items", "retirements"}:
+            raise ValueError("database is missing core inventory tables")
+        con.execute("SELECT id, name, location, quantity, notes, opened_on, expires_on,"
+                    " photo, sds, created_on, retired_on FROM items LIMIT 0")
+        con.execute("SELECT id, item_id, retired_on, reason, method FROM retirements LIMIT 0")
         refs = set()
         for row in con.execute("SELECT photo, sds FROM items"):
             for name in row:
@@ -78,6 +98,7 @@ def create_backup(data_dir, destination, timeout=30):
     filesystem must support hard links for atomic, exclusive archive publication.
     """
     source, target = Path(data_dir), Path(destination)
+    _require_complete_source(source)
     database = source / "cabinet.sqlite3"
     if database.is_symlink() or not database.is_file() or (source / "files").is_symlink():
         raise ValueError("expected regular database and non-symlink files directory")
@@ -117,6 +138,9 @@ def create_backup(data_dir, destination, timeout=30):
         manifest = {"format": 1, "sha256": {name: _hash(stage / name) for name in sorted(names)}}
         (stage / "manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
         _verify_tree(stage)
+        # Match the verifier: metadata consumes the uncompressed budget too.
+        if sum((stage / name).stat().st_size for name in names | {"manifest.json"}) > MAX_TOTAL:
+            raise ValueError("backup including manifest exceeds size limit")
         # Current web edits can remove old files. Recheck all references at the
         # end as well as each individual copy. This detects observed races only.
         for name, (before, digest) in sources.items():
@@ -129,9 +153,12 @@ def create_backup(data_dir, destination, timeout=30):
                     or _hash(file) != digest):
                 raise ValueError("attachment changed during backup: " + name)
         archive = stage / "snapshot.zip"
-        with zipfile.ZipFile(archive, "x", compression=zipfile.ZIP_DEFLATED) as out:
-            for name in sorted(names | {"manifest.json"}):
-                out.write(stage / name, name)
+        with open(archive, "xb", opener=_private_opener) as private_archive:
+            with zipfile.ZipFile(private_archive, "w", compression=zipfile.ZIP_DEFLATED) as out:
+                for name in sorted(names | {"manifest.json"}):
+                    (stage / name).chmod(0o600)
+                    out.write(stage / name, name)
+        _require_complete_source(source)
         os.link(archive, target)
     return target
 
@@ -156,7 +183,7 @@ def _unpack(archive, stage):
                 raise ValueError("manifest too large")
             dest = stage / name
             dest.parent.mkdir(exist_ok=True)
-            with src.open(info) as source, open(dest, "xb") as output:
+            with src.open(info) as source, open(dest, "xb", opener=_private_opener) as output:
                 shutil.copyfileobj(source, output, 65536)
         expected = _verify_tree(stage) | {"manifest.json"}
         if set(names) != expected:
@@ -181,12 +208,13 @@ def restore_backup(archive, destination):
     with tempfile.TemporaryDirectory(prefix=".cabinet-restore-", dir=target.parent) as tmp:
         stage = Path(tmp)
         _unpack(archive, stage)
-        target.mkdir()  # Atomic exclusive reservation, not exists()+rename().
+        target.mkdir(mode=0o700)  # Atomic exclusive reservation, not exists()+rename().
         try:
-            (target / "RESTORE_INCOMPLETE").touch(exist_ok=False)
-            (target / "files").mkdir()
+            with open(target / "RESTORE_INCOMPLETE", "xb", opener=_private_opener):
+                pass
+            (target / "files").mkdir(mode=0o700)
             for name in _verify_tree(stage) | {"manifest.json"}:
-                with open(stage / name, "rb") as src, open(target / name, "xb") as dst:
+                with open(stage / name, "rb") as src, open(target / name, "xb", opener=_private_opener) as dst:
                     shutil.copyfileobj(src, dst, 65536)
             _verify_tree(target)
             (target / "RESTORE_INCOMPLETE").unlink()
