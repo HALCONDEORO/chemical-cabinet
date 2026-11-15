@@ -4,6 +4,7 @@
 
 - Edit a product (name, place, quantity, dates; new photo or sheet replaces the old one only if given).
 - Uploads: a failed save no longer leaves orphan files, and replacing a photo or sheet deletes the old file.
+- Retiring a product is now atomic: a concurrent double retire no longer writes two log rows, and a failed log write rolls the retirement back.
 - CSV export (`/export.csv`) and a printable review sheet (`/review`).
 - Form fields have labels; pages have a main landmark, a named navigation and a skip link.
 - Test that starts the real MCP server process and talks to it over stdio.
