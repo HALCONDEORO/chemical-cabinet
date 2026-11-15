@@ -212,6 +212,8 @@ def sniff_ok(kind, data):
 
 
 def make_handler(data_dir, allowed_hosts=()):
+    if os.path.lexists(os.path.join(data_dir, "RESTORE_INCOMPLETE")):
+        raise ValueError("data directory has a RESTORE_INCOMPLETE marker: an earlier restore did not finish; restore again into a new directory")
     files_dir = os.path.join(data_dir, "files")
     os.makedirs(files_dir, exist_ok=True)
     db_path = os.path.join(data_dir, "cabinet.sqlite3")

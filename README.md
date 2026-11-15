@@ -45,7 +45,7 @@ Python 3.9 or newer.
 python -m chemical_cabinet --data ./data --port 8080
 ```
 
-Open `http://localhost:8080` on the computer that runs it. Data (SQLite database and uploads) lives in the `--data` folder: copy it to back up.
+Open `http://localhost:8080` on the computer that runs it. Data (SQLite database and uploads) lives in the `--data` folder. See [Backups](#backups).
 
 ### Using it from a phone
 
@@ -54,6 +54,18 @@ By default the app only listens on `127.0.0.1`, so a phone cannot reach it. To u
 ### Security model
 
 The app has **no login**: anyone who can reach the port can read and change the inventory. Keep it on a trusted network or behind a reverse proxy with authentication. The app does refuse requests from other web sites open in your browser: it checks the `Host` header (against DNS rebinding), the `Origin` of every change, and a form token. Uploads are limited to JPEG, PNG, WebP and PDF files, checked by content, up to 25 MB.
+
+## Backups
+
+Stop the web app and any MCP server first. Editing a product can delete an old attachment, so a backup taken while they run can miss files. There is no online backup and no all-or-nothing guarantee.
+
+```
+python -m chemical_cabinet.backup create ./data ./cabinet-backup.zip
+python -m chemical_cabinet.backup verify ./cabinet-backup.zip
+python -m chemical_cabinet.backup restore ./cabinet-backup.zip ./data-restored
+```
+
+The database is copied with SQLite's backup API, never as a raw file. `verify` checks paths, sizes, checksums, database integrity and that every attachment is present. `restore` only writes to a folder that does not exist yet, so it never overwrites live data. It leaves a `RESTORE_INCOMPLETE` marker until it has finished. If the process dies midway the marker stays, and the app refuses to start on that folder: delete it and restore again. Point the app at the restored folder only after `restore` reports success. Nothing is sent anywhere.
 
 ## Other tools
 

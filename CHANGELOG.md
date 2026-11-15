@@ -4,6 +4,7 @@
 
 - MCP server: malformed tool parameters (non-object params, non-string name, non-object arguments) now get a JSON-RPC -32602 error instead of ending the session.
 - Search, "needs attention" filter and soonest-expiry sort on the cabinet page.
+- Offline backups: `python -m chemical_cabinet.backup create|verify|restore`. Restore goes to a new folder and leaves a `RESTORE_INCOMPLETE` marker until done; the app refuses to start on a folder that still has it.
 - Edit a product (name, place, quantity, dates; new photo or sheet replaces the old one only if given).
 - Uploads: a failed save no longer leaves orphan files, and replacing a photo or sheet deletes the old file.
 - Retiring a product is now atomic: a concurrent double retire no longer writes two log rows, and a failed log write rolls the retirement back.
