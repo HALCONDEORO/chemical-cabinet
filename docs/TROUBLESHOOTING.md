@@ -62,8 +62,10 @@ Do not add a duplicate until you know which of these happened.
 
 ## CSV or Print sheet shows more records than the current page
 
-The CSV always includes every active record. The print sheet follows your search,
-attention filter, location and order, but not the page number. Both omit retired
+The CSV always includes every active record. The navigation link **Print sheet**
+also includes all active records. **Print this view** on a filtered cabinet passes
+its search, attention filter, location and order, but not the page number. Check
+the filter summary on the sheet itself. Both outputs omit retired
 records and do not contain the attachment files. See [output contents](USER-GUIDE.md#export-and-print-know-what-is-included).
 
 ## Backup or restore refused

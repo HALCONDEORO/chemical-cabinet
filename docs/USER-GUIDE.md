@@ -52,11 +52,14 @@ low-stock calculation or movement ledger. Edit the quantity yourself when needed
 On **Cabinet**, search matches name, location or notes, ignoring letter case. It
 does not search quantity, the disposal log or the contents of attached PDFs.
 **Only products that need attention** keeps records with one or more review flags.
-**Soonest expiry first** puts dated records before records without an expiry date.
+The **Order** menu offers Name A-Z, Soonest expiry first, Grouped by location
+and Newest first. **Only at location** matches the location exactly as recorded;
+it appears when there are named locations. Soonest expiry first puts recognised
+dates first, then malformed dates, then records without an expiry date.
 Choose **Apply** after changing these controls; **Clear** resets the view.
 
 The cabinet shows up to 100 matching records per page. Previous/Next links keep
-the search, filter and sort. Editing from a filtered page returns to that view
+the search, filter, location and sort. Editing from a filtered page returns to that view
 after saving; a changed record may no longer match the filter.
 
 Review flags use the server computer's current date:
@@ -65,6 +68,7 @@ Review flags use the server computer's current date:
 | --- | --- |
 | `expired` | The entered expiry date is before today. |
 | `expires within 30 days` | The expiry date is today or within the next 30 days, including day 30. |
+| `invalid expiry date` | A stored date uses a format that needs review. The app does not silently rewrite it. |
 | `no expiry date` | The expiry field is blank. |
 | `no safety data sheet` | No PDF attachment is linked to the record. |
 | `no photo` | No photo attachment is linked to the record. |
@@ -95,20 +99,26 @@ screen for a retired record. Do not use retirement just to reduce a quantity.
 
 ## Export and print: know what is included
 
-**Print sheet** opens `/review`; use the browser's Print command. Its checkboxes
-are spaces on the printed sheet, not saved review approvals.
+The navigation link **Print sheet** opens `/review` with no filters and includes
+all active records. To print a filtered cabinet, use **Print this view** beside
+the matching-record count. That link carries search, attention filter, location
+and order to `/review`; it includes every match, not just the current page.
+The link appears for a matching search, attention filter or location, not for an
+order-only change. Check the sheet's printed filter summary before printing.
+Use the browser's Print command. The checkboxes are spaces on the printed sheet,
+not saved review approvals.
 
 The Download CSV link on that page opens `/export.csv`.
 
 | Output | Included | Not included |
 | --- | --- | --- |
 | CSV | All active records, attachment yes/no fields and current flags | Retired records, actual photos and PDFs |
-| Print sheet | The active records that match the search, attention filter, location and order you chose on **Cabinet** (all active records if none), and current flags | Retired records, file contents, a saved history of checks |
+| Print sheet / Print this view | All active records through the navigation link; matching active records through Print this view, with current flags | Retired records, file contents, a saved history of checks |
 | Offline backup ZIP | Database and referenced attachment files | An online service or an automatic backup schedule |
 
-The print sheet follows the search, attention filter, location and order you chose on
-**Cabinet**, and says so at the top. It does not depend on the page you were on. The CSV
-always has every active record. Check the output before sharing it. CSV text that could start a
+The print sheet reflects the parameters in its own URL, not a remembered cabinet
+view. The CSV always has every active record, even when downloaded from a
+filtered print sheet. Check the output before sharing it. CSV text that could start a
 spreadsheet formula is prefixed with an apostrophe. Keep that protection rather
 than enabling formulas in untrusted inventory text.
 
