@@ -71,6 +71,45 @@ class OrphanReportTest(unittest.TestCase):
         self.assertIn("Nothing was changed", text)
 
 
+class OddPathAndUnreadableTest(unittest.TestCase):
+    def make(self, root, name, ref, files):
+        d = os.path.join(root, name)
+        os.makedirs(os.path.join(d, "files"))
+        con = db.connect(os.path.join(d, "cabinet.sqlite3"))
+        if ref:
+            db.add_item(con, "Demo", photo=ref)
+        con.close()
+        for n in files:
+            open(os.path.join(d, "files", n), "wb").write(b"1")
+        return d
+
+    def test_special_characters_in_the_folder_name(self):
+        ref = "a" * 16 + ".png"
+        with tempfile.TemporaryDirectory() as root:
+            # A sibling database that a wrongly decoded path would open instead.
+            self.make(root, "a", None, [])
+            for name in ("%61", "q?x", "h#x", "caf\u00e9 \u00f1", "p%3fq"):
+                d = self.make(root, name, ref, [ref])
+                r = orphans.scan(d, 0)
+                self.assertEqual((r["referenced"], r["orphans"], r["missing"]), (1, [], []), name)
+
+    def test_unreadable_entry_fails_closed(self):
+        ref = "a" * 16 + ".png"
+        with tempfile.TemporaryDirectory() as root:
+            d = self.make(root, "d", ref, [ref])
+            import unittest.mock as mock
+
+            class Boom:
+                name = ref
+                def stat(self, follow_symlinks=True):
+                    raise PermissionError(13, "Permission denied")
+            with mock.patch.object(orphans.os, "scandir", return_value=[Boom()]):
+                with self.assertRaises(ValueError) as cm:
+                    orphans.scan(d, 0)
+                self.assertEqual(orphans.main(["--data", d]), 2)
+            self.assertIn("incomplete", str(cm.exception))
+
+
 class ConcurrentEditOrphanTest(unittest.TestCase):
     setUp = base.ServerTest.setUp
     tearDown = base.ServerTest.tearDown

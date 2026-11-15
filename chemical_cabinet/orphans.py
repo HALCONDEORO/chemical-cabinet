@@ -15,8 +15,28 @@ import re
 import sqlite3
 import sys
 import time
+from pathlib import Path
 
 SAFE_NAME = re.compile(r"^[0-9a-f]{16}\.[a-z0-9]{2,5}$")
+
+
+def _open_ro(db_path):
+    """Open the database read-only; the path is percent-encoded, never trusted as a URI."""
+    return sqlite3.connect(Path(db_path).as_uri() + "?mode=ro", uri=True)
+
+
+def _refs(db_path):
+    con = _open_ro(db_path)
+    try:
+        con.execute("PRAGMA query_only = ON")
+        out = set()
+        for photo, sds in con.execute("SELECT photo, sds FROM items"):
+            for name in (photo, sds):
+                if name:
+                    out.add(name)
+        return out
+    finally:
+        con.close()
 
 
 def scan(data_dir, min_age_seconds=3600, now=None):
@@ -29,37 +49,22 @@ def scan(data_dir, min_age_seconds=3600, now=None):
     if os.path.islink(files_dir) or not os.path.isdir(files_dir):
         raise ValueError("files is missing or not a plain folder in %s" % data_dir)
     now = time.time() if now is None else now
-    con = sqlite3.connect("file:%s?mode=ro" % db_path.replace("?", "%3f").replace("#", "%23"), uri=True)
-    try:
-        con.execute("PRAGMA query_only = ON")
-        refs = set()
-        for photo, sds in con.execute("SELECT photo, sds FROM items"):
-            for name in (photo, sds):
-                if name:
-                    refs.add(name)
-    finally:
-        con.close()
+    refs = _refs(db_path)
     on_disk = {}
     other = []
     for entry in os.scandir(files_dir):
         try:
             st = entry.stat(follow_symlinks=False)
-        except OSError:
-            continue
+        except OSError as exc:
+            # Unknown is not "missing" and not "orphan": stop instead of guessing.
+            raise ValueError("cannot read %r (%s); the scan is incomplete" % (entry.name, exc.strerror or exc))
         if entry.is_symlink() or not entry.is_file(follow_symlinks=False) or not SAFE_NAME.match(entry.name):
             other.append(entry.name)
         else:
             on_disk[entry.name] = (st.st_size, max(0, now - st.st_mtime))
     # Read the references once more: an edit that committed while we listed
     # the folder must not turn its new file into an orphan.
-    con = sqlite3.connect("file:%s?mode=ro" % db_path.replace("?", "%3f").replace("#", "%23"), uri=True)
-    try:
-        for photo, sds in con.execute("SELECT photo, sds FROM items"):
-            for name in (photo, sds):
-                if name:
-                    refs.add(name)
-    finally:
-        con.close()
+    refs |= _refs(db_path)
     orphans, recent = [], []
     for name, (size, age) in sorted(on_disk.items()):
         if name in refs:
