@@ -6,7 +6,7 @@
 
 [![tests](https://github.com/HALCONDEORO/chemical-cabinet/actions/workflows/test.yml/badge.svg)](https://github.com/HALCONDEORO/chemical-cabinet/actions/workflows/test.yml)
 
-[Project website](https://halcondeoro.github.io/chemical-cabinet/) · [Run it](#run-it) · [Use it with an AI assistant](docs/AI-AGENTS.md) · [Other tools](docs/ALTERNATIVES.md)
+[Changelog](CHANGELOG.md) · [Project website](https://halcondeoro.github.io/chemical-cabinet/) · [Run it](#run-it) · [Use it with an AI assistant](docs/AI-AGENTS.md) · [Other tools](docs/ALTERNATIVES.md)
 
 A free, self-hosted inventory for the chemical products kept in a cupboard or store room by an association or a small business. For each product you record a photo, the safety data sheet (PDF), where it is kept, the quantity, and the opened and expiry dates. The cabinet page flags what needs attention. When something is thrown away you retire it, and the reason and method go into a disposal log.
 
