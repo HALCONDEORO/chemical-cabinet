@@ -39,13 +39,13 @@ Python standard library only. No accounts, no external services, no tracking. MI
 
 ## Run it
 
-Python 3.9 or newer.
+Python 3.9 or newer (the code is written for 3.9 and newer; the automated tests run on 3.12, and the portable file was also run once on 3.10 on Linux). Python has to be installed on the computer: there is no installer and nothing is bundled.
 
 ```
 python -m chemical_cabinet --data ./data --port 8080
 ```
 
-Open `http://localhost:8080` on the computer that runs it. Data (SQLite database and uploads) lives in the `--data` folder. See [Backups](#backups).
+Open `http://localhost:8080` on the computer that runs it. Data (SQLite database and uploads) lives in the `--data` folder. See [Backups](#backups). To run one portable `.pyz` file instead of the source folder, and to update without losing your data, see [Local installation and updates](docs/LOCAL-INSTALL.md).
 
 ### Using it from a phone
 
