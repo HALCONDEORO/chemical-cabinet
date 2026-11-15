@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- CSV import: `python -m chemical_cabinet.csv_import` reads a CSV file into the cabinet. It previews by default and writes only with `--apply`; the whole file is checked first and nothing is imported if any row is invalid; see docs/CSV-IMPORT.md for the columns, the demo file and the limits.
+
 - Easier local start: `python -m chemical_cabinet.launcher` (or `start` in the portable file built by `python tools/build_zipapp.py`) serves on localhost only, uses a stable data folder in your home directory unless you pass an absolute `--data`, opens your browser after the port is bound (`--no-browser` to skip) and refuses a busy port. Standard library only; the portable file holds no data. Python must still be installed. Exercised on Linux with Python 3.10 only; see docs/LOCAL-INSTALL.md.
 
 - Add and edit: when a field is not valid, the form comes back with what you typed and a message that names the field, instead of a bare error page. A chosen photo or data sheet is not kept; choose it again.
