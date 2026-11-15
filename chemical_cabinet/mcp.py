@@ -6,6 +6,7 @@ is recorded and which review flags apply. It gives no advice on mixing or storin
 chemicals."""
 import argparse
 import json
+from itertools import islice
 import os
 import sys
 
@@ -30,6 +31,16 @@ READ_TOOLS = {
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
 }
+# Page data inside read tools, not the tools/list discovery cursor. The first
+# content block remains the JSON array used by existing clients.
+for _tool in READ_TOOLS.values():
+    _tool["inputSchema"]["properties"].update({
+        "limit": {"type": "integer", "minimum": 1, "maximum": MAX_ITEMS},
+        "offset": {"type": "integer", "minimum": 0, "maximum": 2**63 - 1}})
+    _tool["description"] += (" Optional limit/offset page records (default 500/0). "
+                             "A second text block warns when more remain. "
+                             "Pages are not a snapshot across concurrent edits.")
+
 TEXT = {"type": "string", "maxLength": MAX_TEXT}
 DATE = {"type": "string", "description": "YYYY-MM-DD", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
 WRITE_TOOLS = {
@@ -73,7 +84,34 @@ def item_dict(row):
             "has_safety_data_sheet": bool(row["sds"]), "flags": db.flags(row)}
 
 
-def call_tool(con, name, args, allow_write):
+def read_page(con, name, args, page_info):
+    limit, offset = args.get("limit", MAX_ITEMS), args.get("offset", 0)
+    if type(limit) is not int or not 1 <= limit <= MAX_ITEMS:
+        raise ToolError("limit must be an integer from 1 to %d" % MAX_ITEMS)
+    if type(offset) is not int or not 0 <= offset <= 2**63 - 1:
+        raise ToolError("offset must be an integer from 0 to 9223372036854775807")
+    if name == "disposal_log":
+        rows = con.execute(
+            "SELECT r.*, i.name FROM retirements r JOIN items i ON i.id=r.item_id "
+            "ORDER BY r.id DESC LIMIT ? OFFSET ?", (limit + 1, offset))
+        data = [{"item_id": r["item_id"], "name": r["name"], "retired_on": r["retired_on"],
+                 "reason": r["reason"], "method": r["method"]} for r in rows]
+    elif name == "list_items":
+        rows = con.execute("SELECT * FROM items WHERE retired_on IS NULL "
+                           "ORDER BY name, id LIMIT ? OFFSET ?", (limit + 1, offset))
+        data = [item_dict(r) for r in rows]
+    else:
+        rows = con.execute("SELECT * FROM items WHERE retired_on IS NULL ORDER BY name, id")
+        flagged = (item_dict(r) for r in rows)
+        matches = (r for r in flagged if r["flags"])
+        data = list(islice(islice(matches, offset, None), limit + 1))
+        rows.close()
+    if page_info is not None:
+        page_info.update(has_more=len(data) > limit, next_offset=offset + limit, limit=limit)
+    return data[:limit]
+
+
+def call_tool(con, name, args, allow_write, page_info=None):
     if not isinstance(args, dict):
         raise ToolError("arguments must be an object")
     if not isinstance(name, str):
@@ -87,13 +125,8 @@ def call_tool(con, name, args, allow_write):
     unknown = set(args) - set(tools[name]["inputSchema"]["properties"])
     if unknown:
         raise ToolError("unexpected arguments: " + ", ".join(sorted(unknown)))
-    if name == "list_items":
-        return [item_dict(r) for r in db.active_items(con)[:MAX_ITEMS]]
-    if name == "review":
-        return [d for d in (item_dict(r) for r in db.active_items(con)) if d["flags"]][:MAX_ITEMS]
-    if name == "disposal_log":
-        return [{"item_id": r["item_id"], "name": r["name"], "retired_on": r["retired_on"],
-                 "reason": r["reason"], "method": r["method"]} for r in db.retirement_log(con)[:MAX_ITEMS]]
+    if name in READ_TOOLS:
+        return read_page(con, name, args, page_info)
     if name == "add_item":
         try:
             new_id = db.add_item(con, text_arg(args, "name", True), text_arg(args, "location"),
@@ -141,8 +174,14 @@ def handle(msg, db_path, allow_write):
                     "error": {"code": -32602, "message": "expected tool name and object arguments"}}
         con = db.connect(db_path)
         try:
-            data = call_tool(con, params["name"], params.get("arguments", {}), allow_write)
+            page_info = {}
+            data = call_tool(con, params["name"], params.get("arguments", {}), allow_write, page_info)
             result = {"content": [{"type": "text", "text": json.dumps(data, indent=2)}], "isError": False}
+            if page_info.get("has_more"):
+                result["content"].append({"type": "text", "text": (
+                    "More records remain. Call %s with offset=%d and limit=%d. "
+                    "Concurrent edits can move records between pages; this is not a snapshot."
+                    % (params["name"], page_info["next_offset"], page_info["limit"]))})
         except ToolError as exc:
             result = {"content": [{"type": "text", "text": str(exc)}], "isError": True}
         finally:
