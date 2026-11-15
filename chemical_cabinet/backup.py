@@ -49,8 +49,16 @@ def _references(path):
     with closing(sqlite3.connect(path.resolve().as_uri() + "?mode=ro", uri=True)) as con:
         if con.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
             raise ValueError("database integrity check failed")
-        # Check both core tables before accepting a restore candidate.
-        con.execute("SELECT item_id, retired_on, reason, method FROM retirements LIMIT 0")
+        # Integrity_check does not establish application compatibility. Require
+        # real core tables and every column read or written by the application;
+        # extra columns/tables remain allowed for additive schema changes.
+        tables = {row[0] for row in con.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN ('items', 'retirements')")}
+        if tables != {"items", "retirements"}:
+            raise ValueError("database is missing core inventory tables")
+        con.execute("SELECT id, name, location, quantity, notes, opened_on, expires_on,"
+                    " photo, sds, created_on, retired_on FROM items LIMIT 0")
+        con.execute("SELECT id, item_id, retired_on, reason, method FROM retirements LIMIT 0")
         refs = set()
         for row in con.execute("SELECT photo, sds FROM items"):
             for name in row:
