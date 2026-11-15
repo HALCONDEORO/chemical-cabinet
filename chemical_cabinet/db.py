@@ -80,6 +80,32 @@ def add_item(con, name, location="", quantity="", notes="", opened_on=None,
     return cur.lastrowid
 
 
+def update_item(con, item_id, name, location="", quantity="", notes="", opened_on=None,
+                expires_on=None, photo=None, sds=None):
+    """Edit an active product. A new photo or sheet replaces the old one only if given."""
+    name = name.strip()
+    if not name:
+        raise ValueError("name is required")
+    parse_date(opened_on)
+    parse_date(expires_on)
+    row = con.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
+    if row is None:
+        raise KeyError(item_id)
+    if row["retired_on"]:
+        raise ValueError("retired items cannot be edited")
+    con.execute(
+        "UPDATE items SET name=?, location=?, quantity=?, notes=?, opened_on=?, expires_on=?,"
+        " photo=?, sds=? WHERE id=?",
+        (name, location.strip(), quantity.strip(), notes.strip(),
+         (opened_on or "").strip() or None, (expires_on or "").strip() or None,
+         photo or row["photo"], sds or row["sds"], item_id))
+    con.commit()
+
+
+def get_item(con, item_id):
+    return con.execute("SELECT * FROM items WHERE id=?", (item_id,)).fetchone()
+
+
 def retire_item(con, item_id, reason="", method="", today=None):
     day = (today or date.today()).isoformat()
     row = con.execute("SELECT id, retired_on FROM items WHERE id=?", (item_id,)).fetchone()

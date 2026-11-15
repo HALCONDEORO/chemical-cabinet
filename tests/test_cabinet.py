@@ -181,6 +181,32 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("GET", "/export.csv", headers={"Host": "evil.example"})[0], 403)
 
 
+    def test_edit_item(self):
+        tok = self.token()
+        self.add({"name": "Typo cleaner", "location": "Shelf 1"},
+                 {"sds": ("s.pdf", "application/pdf", b"%PDF-1.4 test")}, tok)
+        h = {"Host": "localhost:%d" % self.port}
+        status, body, _ = self.req("GET", "/edit/1", headers=h)
+        self.assertEqual(status, 200)
+        self.assertIn("value='Typo cleaner'", body.decode())
+        # no token: refused
+        b, ct = self.multipart({"name": "Hacked"}, {})
+        self.assertEqual(self.post("/edit/1", b, ct, tok)[0], 403)
+        # edit without a new file keeps the sheet
+        b, ct = self.multipart({"name": "Fixed '\"<i>cleaner", "location": "Shelf 2", "csrf": tok}, {})
+        self.assertEqual(self.post("/edit/1", b, ct, tok)[0], 303)
+        page = self.req("GET", "/", headers=h)[1].decode()
+        self.assertIn("Fixed &#x27;&quot;&lt;i&gt;cleaner", page)
+        self.assertIn("Shelf 2", page)
+        self.assertIn("Safety data sheet", page)
+        # bad date and missing id
+        b, ct = self.multipart({"name": "x", "expires_on": "nope", "csrf": tok}, {})
+        self.assertEqual(self.post("/edit/1", b, ct, tok)[0], 400)
+        b, ct = self.multipart({"name": "x", "csrf": tok}, {})
+        self.assertEqual(self.post("/edit/99", b, ct, tok)[0], 404)
+        self.assertEqual(self.req("GET", "/edit/99", headers=h)[0], 404)
+        self.assertEqual(self.req("GET", "/edit/1", headers={"Host": "evil.example"})[0], 403)
+
     def test_forms_have_labels(self):
         h = {"Host": "localhost:%d" % self.port}
         html_ = self.req("GET", "/add", headers=h)[1].decode()

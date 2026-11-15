@@ -129,25 +129,28 @@ def render_list(items, token=''):
         sds = " <a href='/files/%s'>Safety data sheet</a>" % e(it["sds"]) if it["sds"] else ""
         out.append(
             "<div class=card><b>%s</b> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
-            "<details><summary>Retire this product</summary>"
+            "<a href='/edit/%d'>Edit</a><details><summary>Retire this product</summary>"
             "<form method=post action='/retire/%d'><input type=hidden name=csrf value='%s'><input name=reason placeholder='Reason' aria-label='Reason for retiring'>"
             "<input name=method placeholder='How it was disposed of' aria-label='How it was disposed of'><button>Retire</button></form></details></div>"
             % (e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
-               e(it["expires_on"] or "?"), sds, it["id"], token))
+               e(it["expires_on"] or "?"), sds, it["id"], it["id"], token))
     return "".join(out)
 
 
-def add_form(token):
-    return ("<form method=post action='/add' enctype='multipart/form-data'>"
+def add_form(token, item=None):
+    v = (lambda k: e(item[k] or "")) if item else (lambda k: "")
+    action = "/edit/%d" % item["id"] if item else "/add"
+    keep = (" (leave empty to keep the current file)" if item else "")
+    return ("<form method=post action='" + action + "' enctype='multipart/form-data'>"
             "<input type=hidden name=csrf value='" + token + "'>"
-            "<label for=f-name>Name</label><input id=f-name name=name required autocomplete=off>"
-            "<label for=f-loc>Location</label><input id=f-loc name=location>"
-            "<label for=f-qty>Quantity</label><input id=f-qty name=quantity>"
-            "<label for=f-notes>Notes</label><textarea id=f-notes name=notes></textarea>"
-            "<label for=f-open>Opened on</label><input id=f-open type=date name=opened_on>"
-            "<label for=f-exp>Expires on</label><input id=f-exp type=date name=expires_on>"
-            "<label for=f-photo>Photo</label><input id=f-photo type=file name=photo accept='image/*' capture=environment>"
-            "<label for=f-sds>Safety data sheet (PDF)</label><input id=f-sds type=file name=sds accept='application/pdf'>"
+            "<label for=f-name>Name</label><input id=f-name name=name required autocomplete=off value='" + v("name") + "'>"
+            "<label for=f-loc>Location</label><input id=f-loc name=location value='" + v("location") + "'>"
+            "<label for=f-qty>Quantity</label><input id=f-qty name=quantity value='" + v("quantity") + "'>"
+            "<label for=f-notes>Notes</label><textarea id=f-notes name=notes>" + v("notes") + "</textarea>"
+            "<label for=f-open>Opened on</label><input id=f-open type=date name=opened_on value='" + v("opened_on") + "'>"
+            "<label for=f-exp>Expires on</label><input id=f-exp type=date name=expires_on value='" + v("expires_on") + "'>"
+            "<label for=f-photo>Photo" + keep + "</label><input id=f-photo type=file name=photo accept='image/*' capture=environment>"
+            "<label for=f-sds>Safety data sheet (PDF)" + keep + "</label><input id=f-sds type=file name=sds accept='application/pdf'>"
             "<button>Save</button></form>")
 
 
@@ -255,6 +258,11 @@ def make_handler(data_dir, allowed_hosts=()):
                     self.send(200, page("Chemical cabinet", render_list(db.active_items(con), token)), extra=cookie)
                 elif path == "/add":
                     self.send(200, page("Add item", add_form(token)), extra=cookie)
+                elif path.startswith("/edit/") and path[6:].isdigit():
+                    it = db.get_item(con, int(path[6:]))
+                    if it is None or it["retired_on"]:
+                        return self.send(404, b"not found", "text/plain")
+                    self.send(200, page("Edit item", add_form(token, it)), extra=cookie)
                 elif path == "/export.csv":
                     self.send(200, items_csv(db.active_items(con)), "text/csv; charset=utf-8",
                               extra=[("Content-Disposition", "attachment; filename=chemical-cabinet.csv")])
@@ -306,6 +314,21 @@ def make_handler(data_dir, allowed_hosts=()):
                         db.add_item(con, fields.get("name", ""), fields.get("location", ""),
                                     fields.get("quantity", ""), fields.get("notes", ""),
                                     fields.get("opened_on"), fields.get("expires_on"), photo, sds)
+                    except ValueError as exc:
+                        return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
+                    self.redirect("/")
+                elif path.startswith("/edit/") and path[6:].isdigit():
+                    fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
+                    if not self.csrf_ok(fields.get("csrf")):
+                        return self.send(403, b"missing or wrong form token", "text/plain")
+                    try:
+                        photo = save_file(files.get("photo"), PHOTO_TYPES)
+                        sds = save_file(files.get("sds"), SDS_TYPES)
+                        db.update_item(con, int(path[6:]), fields.get("name", ""), fields.get("location", ""),
+                                       fields.get("quantity", ""), fields.get("notes", ""),
+                                       fields.get("opened_on"), fields.get("expires_on"), photo, sds)
+                    except KeyError:
+                        return self.send(404, b"not found", "text/plain")
                     except ValueError as exc:
                         return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
                     self.redirect("/")
