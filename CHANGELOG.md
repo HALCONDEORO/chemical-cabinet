@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Add and edit: when a field is not valid, the form comes back with what you typed and a message that names the field, instead of a bare error page. A chosen photo or data sheet is not kept; choose it again.
-- MCP: new read-only `inventory_summary` tool for AI agents. It returns full counts (active, flagged, expired, expiring soon, invalid or missing dates) and a review-detail view, with no product names, notes or file paths by default and no 500-row truncation.
+- MCP: new read-only `inventory_summary` tool for AI agents. It returns full counts (active, flagged, expired, expiring soon, invalid or missing dates) and points to review for record details, with no product names, notes or file paths by default and no 500-row truncation.
 
 - Uploads: a photo or data sheet is now written to a new file that cannot replace an existing one, and a failed write removes only the partial file it created, so a name collision can no longer overwrite or delete another product's sheet. Serving `/files/` refuses a symlinked or non-regular upload folder and does not follow a symlink as the last path part (checked on POSIX; this is not a defence against a local user who can change the folders).
 
