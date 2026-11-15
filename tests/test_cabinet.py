@@ -280,7 +280,7 @@ class McpProcessTest(unittest.TestCase):
                     {"jsonrpc": "2.0", "id": 4, "method": "tools/call", "params": {"name": "add_item", "arguments": {"name": "x"}}}]
             out, _ = proc.communicate("\n".join(_json.dumps(m) for m in msgs) + "\n", timeout=20)
             replies = {r["id"]: r for r in map(_json.loads, out.splitlines())}
-            self.assertEqual({t["name"] for t in replies[2]["result"]["tools"]}, {"list_items", "review", "disposal_log"})
+            self.assertEqual({t["name"] for t in replies[2]["result"]["tools"]}, {"list_items", "review", "disposal_log", "inventory_summary"})
             self.assertIn("expired", replies[3]["result"]["content"][0]["text"])
             self.assertTrue("error" in replies[4] or replies[4]["result"].get("isError"))
             self.assertEqual(proc.returncode, 0)
@@ -324,7 +324,7 @@ class McpTest(unittest.TestCase):
     def test_read_only_by_default(self):
         out = self.run_server([{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}])
         names = {t["name"] for t in out[0]["result"]["tools"]}
-        self.assertEqual(names, {"list_items", "review", "disposal_log"})
+        self.assertEqual(names, {"list_items", "review", "disposal_log", "inventory_summary"})
         res = self.call("add_item", {"name": "x"})
         self.assertTrue(res["isError"])
         res = self.call("list_items", {})
