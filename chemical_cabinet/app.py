@@ -28,7 +28,7 @@ CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin
        "nav{display:flex;gap:1.4rem;border-bottom:1px solid #d8e0dc;padding-bottom:.6rem}nav a{text-decoration:none;color:#183b40;font-weight:600;font-size:14px;min-height:44px;display:flex;align-items:center}"
        ".edit{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input[type=checkbox]{width:auto;margin:0 .5rem 0 0}.filters label{font-weight:400}.filters label:first-child{font-weight:600}.filters label:not(:first-child){display:flex;align-items:center;min-height:44px}.filters a{display:inline-block;min-height:44px;line-height:44px}.pages{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1rem 0}.pager{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #6f8580;border-radius:6px;background:#fff;color:#183b40}"
        "button{background:#183b40;color:#fff;border:0;font-weight:600;min-height:48px;cursor:pointer}button:hover{background:#16644f}"
-       ".card h2,.card h3{overflow-wrap:anywhere}.card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
+       ".card h2,.card h3{overflow-wrap:anywhere}.card h2{font-size:1.1rem;line-height:1.4;margin:0 0 .5rem}.card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
        ".flag{display:inline-block;margin-bottom:.3rem;background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;}"
        ".bad{background:#f2d3c9;color:#6b2412}img{max-width:100%;border-radius:8px}"
        "summary{cursor:pointer;color:#16644f;margin-top:.6rem;min-height:44px;font-weight:600}.note{color:#657579;font-size:.85rem;border-left:3px solid #16644f;padding-left:.8rem}"
@@ -42,7 +42,7 @@ def page(title, body):
             "<meta name=viewport content='width=device-width,initial-scale=1'>"
             "<title>%s</title><style>%s</style>"
             "<a class=skip href='#main'>Skip to content</a><nav aria-label=Main><a href='/'>Cabinet</a><a href='/add'>Add</a><a href='/log'>Disposal log</a><a href='/review'>Print sheet</a></nav>"
-            "<main id=main><h1>%s</h1>%s</main>"
+            "<main id=main tabindex=-1 aria-label='Main content'><h1>%s</h1>%s</main>"
             "<p class=note>A tracking aid only. It does not check legal compliance or "
             "chemical compatibility. Follow the safety data sheet and your local rules.</p>"
             % (html.escape(title), CSS, html.escape(title), body)).encode()
@@ -202,14 +202,19 @@ def render_list(items, token='', view=None):
         chips = "".join("<span class='flag%s'>%s</span>" % (
             " bad" if f == "expired" else "", e(f)) for f in fl)
         photo = "<img src='/files/%s' alt=''>" % e(it["photo"]) if it["photo"] else ""
-        sds = " <a href='/files/%s'>Safety data sheet</a>" % e(it["sds"]) if it["sds"] else ""
+        sds = " <a id='sds-%d' href='/files/%s' aria-labelledby='sds-%d product-%d'>Safety data sheet</a>" % (it["id"], e(it["sds"]), it["id"], it["id"]) if it["sds"] else ""
         out.append(
-            "<div class=card><b>%s</b> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
-            "<br><a class=edit href='/edit/%d%s'>Edit</a><details><summary>Retire this product</summary>"
-            "<form method=post action='/retire/%d'><input type=hidden name=csrf value='%s'><input name=reason placeholder='Reason' aria-label='Reason for retiring'>"
-            "<input name=method placeholder='How it was disposed of' aria-label='How it was disposed of'><button>Retire</button></form></details></div>"
-            % (e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
-               e(it["expires_on"] or "?"), sds, it["id"], e(back), it["id"], token))
+            "<article class=card aria-labelledby='product-%d'><h2 id='product-%d'>%s</h2> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
+            "<br><a class=edit href='/edit/%d%s' id='edit-%d' aria-labelledby='edit-%d product-%d'>Edit</a>"
+            "<details><summary id='retire-summary-%d' aria-labelledby='retire-summary-%d product-%d'>Retire this product</summary>"
+            "<form method=post action='/retire/%d' aria-labelledby='retire-summary-%d product-%d'><input type=hidden name=csrf value='%s'>"
+            "<label for='retire-reason-%d'>Reason for retiring (optional)</label><input id='retire-reason-%d' name=reason>"
+            "<label for='retire-method-%d'>How it was disposed of (optional)</label><input id='retire-method-%d' name=method>"
+            "<button id='retire-button-%d' aria-labelledby='retire-button-%d product-%d'>Retire</button></form></details></article>"
+            % (it["id"], it["id"], e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
+               e(it["expires_on"] or "?"), sds, it["id"], e(back), it["id"], it["id"], it["id"],
+               it["id"], it["id"], it["id"], it["id"], it["id"], it["id"], token,
+               it["id"], it["id"], it["id"], it["id"], it["id"], it["id"], it["id"]))
     return "".join(out)
 
 
