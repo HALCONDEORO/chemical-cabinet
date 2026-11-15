@@ -1,0 +1,7 @@
+# chemical-cabinet
+
+> Free, self-hosted inventory for chemical products in a cupboard: photo, safety data sheet, expiry date, disposal log. Python standard library only. MIT. A tracking aid, not compliance advice.
+
+- [README](https://github.com/HALCONDEORO/chemical-cabinet/blob/main/README.md): run it, phone use, security model
+- [AI assistant guide](https://github.com/HALCONDEORO/chemical-cabinet/blob/main/docs/AI-AGENTS.md): local MCP server, read-only by default
+- [Other tools](https://github.com/HALCONDEORO/chemical-cabinet/blob/main/docs/ALTERNATIVES.md)

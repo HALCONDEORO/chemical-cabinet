@@ -1,10 +1,13 @@
 """Tiny mobile-friendly web app. Standard library only, no accounts: run it on a
 trusted network or behind your own reverse proxy with authentication."""
 import argparse
+import hmac
 import html
+import ipaddress
 import os
 import re
 import secrets
+from http.cookies import SimpleCookie
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,13 +20,17 @@ PHOTO_TYPES = {"image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp"}
 SDS_TYPES = {"application/pdf": ".pdf"}
 SAFE_NAME = re.compile(r"^[0-9a-f]{16}\.(jpg|png|webp|pdf)$")
 
-CSS = ("body{font-family:system-ui,sans-serif;margin:0;padding:1rem;max-width:42rem;margin:auto;background:#f7f9fb;color:#16202a}"
-       "input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .7rem;padding:.5rem}"
-       "button{background:#1d4ed8;color:#fff;border:0;border-radius:.4rem}"
-       ".card{background:#fff;border:1px solid #ccc;border-radius:.5rem;padding:.7rem;margin:.7rem 0}"
-       ".flag{background:#fde68a;border-radius:.3rem;padding:0 .4rem;margin-right:.3rem;font-size:.85rem}"
-       "summary{cursor:pointer;color:#1d4ed8;margin-top:.5rem}.bad{background:#fecaca}img{max-width:100%;border-radius:.4rem}"
-       "nav a{margin-right:1rem}.note{color:#555;font-size:.9rem}")
+CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:1rem;max-width:42rem;margin:auto;background:#fbfaf6;color:#40575b}"
+       "h1{font:400 clamp(34px,8vw,48px)/1.1 Georgia,'Times New Roman',serif;letter-spacing:-.04em;color:#183b40;margin:.6rem 0 1rem}"
+       "a{color:#16644f;text-underline-offset:4px}a:focus-visible,summary:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #a7442c;outline-offset:3px}"
+       "nav{display:flex;gap:1.4rem;border-bottom:1px solid #d8e0dc;padding-bottom:.6rem}nav a{text-decoration:none;color:#183b40;font-weight:600;font-size:14px;min-height:44px;display:flex;align-items:center}"
+       "input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #d8e0dc;border-radius:6px;background:#fff;color:#183b40}"
+       "button{background:#183b40;color:#fff;border:0;font-weight:600;min-height:48px;cursor:pointer}button:hover{background:#16644f}"
+       ".card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
+       ".flag{background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;white-space:nowrap}"
+       ".bad{background:#f2d3c9;color:#6b2412}img{max-width:100%;border-radius:8px}"
+       "summary{cursor:pointer;color:#16644f;margin-top:.6rem;min-height:44px;font-weight:600}.note{color:#657579;font-size:.85rem;border-left:3px solid #16644f;padding-left:.8rem}"
+       "@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}")
 
 
 def page(title, body):
@@ -37,11 +44,45 @@ def page(title, body):
             % (html.escape(title), CSS, html.escape(title), body)).encode()
 
 
+TOKEN_RE = re.compile(r"^[0-9a-f]{32}$")
+COOKIE = "cc_csrf"
+
+
+def host_ok(host_header, allowed=()):
+    """Accept localhost, IP literals and explicitly allowed names. A browser reaching
+    this server through a rebound DNS name sends that name in Host, so it is refused."""
+    host = (host_header or "").strip().lower()
+    if not host:
+        return False
+    if host.startswith("["):
+        name = host[1:].split("]", 1)[0]
+    else:
+        name = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    if name == "localhost" or name in {a.lower() for a in allowed}:
+        return True
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        return False
+
+
+def origin_ok(headers):
+    """For POST: refuse requests a browser marks as cross-site or whose Origin is not us."""
+    site = headers.get("Sec-Fetch-Site")
+    if site not in (None, "same-origin", "none"):
+        return False
+    origin = headers.get("Origin")
+    if origin is None:
+        return True
+    return urlparse(origin).netloc.lower() == (headers.get("Host") or "").lower()
+
+
 def e(value):
     return html.escape(str(value or ""))
 
 
-def render_list(items):
+def render_list(items, token=''):
     if not items:
         return "<p>No items yet. <a href='/add'>Add the first one.</a></p>"
     out = []
@@ -54,14 +95,16 @@ def render_list(items):
         out.append(
             "<div class=card><b>%s</b> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
             "<details><summary>Retire this product</summary>"
-            "<form method=post action='/retire/%d'><input name=reason placeholder='Reason'>"
+            "<form method=post action='/retire/%d'><input type=hidden name=csrf value='%s'><input name=reason placeholder='Reason'>"
             "<input name=method placeholder='How it was disposed of'><button>Retire</button></form></details></div>"
             % (e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
-               e(it["expires_on"] or "?"), sds, it["id"]))
+               e(it["expires_on"] or "?"), sds, it["id"], token))
     return "".join(out)
 
 
-ADD_FORM = ("<form method=post action='/add' enctype='multipart/form-data'>"
+def add_form(token):
+    return ("<form method=post action='/add' enctype='multipart/form-data'>"
+            "<input type=hidden name=csrf value='" + token + "'>"
             "Name<input name=name required>Location<input name=location>Quantity<input name=quantity>"
             "Notes<textarea name=notes></textarea>Opened on<input type=date name=opened_on>"
             "Expires on<input type=date name=expires_on>"
@@ -102,7 +145,7 @@ def sniff_ok(kind, data):
     return False
 
 
-def make_handler(data_dir):
+def make_handler(data_dir, allowed_hosts=()):
     files_dir = os.path.join(data_dir, "files")
     os.makedirs(files_dir, exist_ok=True)
     db_path = os.path.join(data_dir, "cabinet.sqlite3")
@@ -133,17 +176,47 @@ def make_handler(data_dir):
             self.end_headers()
             self.wfile.write(body)
 
+        def guard(self, post):
+            """Host check on every request, Origin and CSRF checks on POST."""
+            if not host_ok(self.headers.get("Host"), allowed_hosts):
+                self.send(403, b"host not allowed", "text/plain")
+                return False
+            if post and not origin_ok(self.headers):
+                self.send(403, b"cross-site request refused", "text/plain")
+                return False
+            return True
+
+        def cookie_token(self):
+            jar = SimpleCookie()
+            try:
+                jar.load(self.headers.get("Cookie", ""))
+            except Exception:
+                return None
+            morsel = jar.get(COOKIE)
+            return morsel.value if morsel and TOKEN_RE.match(morsel.value) else None
+
+        def csrf_ok(self, submitted):
+            token = self.cookie_token()
+            return bool(token) and hmac.compare_digest(token, submitted or "")
+
         def redirect(self, to):
             self.send(303, b"", extra=[("Location", to)])
 
         def do_GET(self):
+            if not self.guard(False):
+                return
             path = urlparse(self.path).path
+            token = self.cookie_token()
+            cookie = []
+            if token is None:
+                token = secrets.token_hex(16)
+                cookie = [("Set-Cookie", "%s=%s; Path=/; HttpOnly; SameSite=Strict" % (COOKIE, token))]
             con = db.connect(db_path)
             try:
                 if path == "/":
-                    self.send(200, page("Chemical cabinet", render_list(db.active_items(con))))
+                    self.send(200, page("Chemical cabinet", render_list(db.active_items(con), token)), extra=cookie)
                 elif path == "/add":
-                    self.send(200, page("Add item", ADD_FORM))
+                    self.send(200, page("Add item", add_form(token)), extra=cookie)
                 elif path == "/log":
                     rows = db.retirement_log(con)
                     body = "".join("<div class=card><b>%s</b> - %s<br>%s<br>%s</div>" % (
@@ -166,7 +239,14 @@ def make_handler(data_dir):
                 con.close()
 
         def do_POST(self):
-            length = int(self.headers.get("Content-Length") or 0)
+            if not self.guard(True):
+                return
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                return self.send(400, b"bad content length", "text/plain")
+            if length < 0:
+                return self.send(400, b"bad content length", "text/plain")
             if length > MAX_BODY:
                 return self.send(413, b"too large", "text/plain")
             body = self.rfile.read(length)
@@ -175,6 +255,8 @@ def make_handler(data_dir):
             try:
                 if path == "/add":
                     fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
+                    if not self.csrf_ok(fields.get("csrf")):
+                        return self.send(403, b"missing or wrong form token", "text/plain")
                     try:
                         photo = save_file(files.get("photo"), PHOTO_TYPES)
                         sds = save_file(files.get("sds"), SDS_TYPES)
@@ -186,6 +268,8 @@ def make_handler(data_dir):
                     self.redirect("/")
                 elif path.startswith("/retire/"):
                     form = {k: v[0] for k, v in parse_qs(body.decode("utf-8", "replace")).items()}
+                    if not self.csrf_ok(form.get("csrf")):
+                        return self.send(403, b"missing or wrong form token", "text/plain")
                     try:
                         db.retire_item(con, int(path.rsplit("/", 1)[1]),
                                        form.get("reason", ""), form.get("method", ""))
@@ -208,8 +292,11 @@ def main(argv=None):
     ap.add_argument("--data", default="data", help="folder for the database and uploads")
     ap.add_argument("--host", default="127.0.0.1")
     ap.add_argument("--port", type=int, default=8080)
+    ap.add_argument("--allowed-host", action="append", default=[],
+                    help="extra host name the app may be reached by, for example cabinet.local")
     args = ap.parse_args(argv)
-    ThreadingHTTPServer((args.host, args.port), make_handler(args.data)).serve_forever()
+    ThreadingHTTPServer((args.host, args.port),
+                        make_handler(args.data, args.allowed_host)).serve_forever()
 
 
 if __name__ == "__main__":
