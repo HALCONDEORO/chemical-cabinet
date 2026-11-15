@@ -24,9 +24,9 @@ SAFE_NAME = re.compile(r"^[0-9a-f]{16}\.(jpg|png|webp|pdf)$")
 
 CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin:0;padding:1rem;max-width:42rem;margin:auto;background:#fbfaf6;color:#40575b}"
        "h1{font:400 clamp(34px,8vw,48px)/1.1 Georgia,'Times New Roman',serif;letter-spacing:-.04em;color:#183b40;margin:.6rem 0 1rem}"
-       "a{color:#16644f;text-underline-offset:4px}a:focus-visible,summary:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #a7442c;outline-offset:3px}"
+       "a{color:#16644f;text-underline-offset:4px}a:focus-visible,summary:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:3px solid #a7442c;outline-offset:3px}"
        "nav{display:flex;gap:1.4rem;border-bottom:1px solid #d8e0dc;padding-bottom:.6rem}nav a{text-decoration:none;color:#183b40;font-weight:600;font-size:14px;min-height:44px;display:flex;align-items:center}"
-       ".edit{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input[type=checkbox]{width:auto;margin:0 .5rem 0 0}.filters label{font-weight:400}.filters label:first-child{font-weight:600}.filters label:not(:first-child){display:flex;align-items:center;min-height:44px}.filters a{display:inline-block;min-height:44px;line-height:44px}.pages{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1rem 0}.pager{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #6f8580;border-radius:6px;background:#fff;color:#183b40}"
+       ".edit{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input[type=checkbox]{width:auto;margin:0 .5rem 0 0}.filters label{font-weight:400}.filters label:first-child{font-weight:600}.filters label:not(:first-child){display:flex;align-items:center;min-height:44px}.filters a{display:inline-block;min-height:44px;line-height:44px}.pages{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1rem 0}.pager{display:inline-block;min-height:44px;line-height:44px;font-weight:600}select{font:inherit;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #6f8580;border-radius:6px;background:#fff;color:#183b40;min-height:44px;max-width:100%}input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #6f8580;border-radius:6px;background:#fff;color:#183b40}"
        "button{background:#183b40;color:#fff;border:0;font-weight:600;min-height:48px;cursor:pointer}button:hover{background:#16644f}"
        ".card h2,.card h3{overflow-wrap:anywhere}.card h2{font-size:1.1rem;line-height:1.4;margin:0 0 .5rem}.card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
        ".flag{display:inline-block;margin-bottom:.3rem;background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;}"
@@ -111,41 +111,90 @@ def items_csv(items):
     return ("\ufeff" + buf.getvalue()).encode("utf-8")
 
 
-def review_sheet(items):
+def review_sheet(items, q="", only_flagged=False, sort="", location=""):
     import datetime
     rows = "".join(
         "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td class=chk></td></tr>" % (
             e(it["name"]), e(it["location"]), e(it["quantity"]), e(it["expires_on"] or "?"),
             e("; ".join(db.flags(it)) or "-")) for it in items)
-    return ("<p>Printed %s. Tick each product once it has been checked on the shelf.</p>"
+    return ("<p>Printed %s. %sTick each product once it has been checked on the shelf.</p>"
             "<table class=sheet><tr><th>Product</th><th>Where</th><th>Qty</th><th>Expires</th>"
             "<th>Flags</th><th>Checked</th></tr>%s</table>"
-            "<p class=noprint><a href='/export.csv'>Download CSV</a>. To print, use your browser's Print command.</p>"
-            % (datetime.date.today().isoformat(), rows or "<tr><td colspan=6>No items.</td></tr>"))
+            "<p class=noprint><a href='/export.csv'>Download all active products (CSV)</a>. To print, use your browser's Print command.</p>"
+            % (datetime.date.today().isoformat(), e(filter_summary(q, only_flagged, sort, location)),
+               rows or "<tr><td colspan=6>No items.</td></tr>"))
 
 
-def filter_items(items, q="", only_flagged=False, sort=""):
+SORTS = ("", "expiry", "location", "newest")
+
+
+def sort_key(text):
+    """A sort the list knows about; anything else falls back to the default order."""
+    return text if text in SORTS else ""
+
+
+def filter_items(items, q="", only_flagged=False, sort="", location=""):
     q = (q or "").strip().lower()[:100]
+    location = (location or "")[:200]
     out = []
     for it in items:
         if q and q not in " ".join((it["name"], it["location"], it["notes"])).lower():
             continue
         if only_flagged and not db.flags(it):
             continue
+        if location and it["location"] != location:
+            continue
         out.append(it)
     if sort == "expiry":
-        out.sort(key=lambda it: (it["expires_on"] is None, it["expires_on"] or "", it["name"].lower()))
+        out.sort(key=db.expiry_sort_key)
+    elif sort == "location":
+        out.sort(key=lambda it: (it["location"].lower(), it["name"].lower()))
+    elif sort == "newest":
+        out.sort(key=lambda it: (it["created_on"], it["id"]), reverse=True)
     return out
 
 
-def filter_form(q, only_flagged, sort):
+def known_locations(items):
+    """Distinct typed locations, for the filter dropdown. Exact values: the match is exact."""
+    return sorted({it["location"] for it in items if it["location"]}, key=str.lower)
+
+
+def filter_summary(q, only_flagged, sort, location):
+    """One line naming the active filters, for the printed sheet."""
+    parts = []
+    if q:
+        parts.append('search "%s"' % q)
+    if only_flagged:
+        parts.append("needs attention")
+    if location:
+        parts.append('location "%s"' % location)
+    if sort == "expiry":
+        parts.append("soonest expiry first")
+    elif sort == "location":
+        parts.append("grouped by location")
+    elif sort == "newest":
+        parts.append("newest first")
+    return ("Filtered: " + "; ".join(parts) + ". ") if parts else ""
+
+
+def filter_form(q, only_flagged, sort, location="", locations=()):
+    sort_options = [("", "Name A-Z"), ("expiry", "Soonest expiry first"),
+                    ("location", "Grouped by location"), ("newest", "Newest first")]
+    sort_field = ("<label>Order <select name=sort>" + "".join(
+        "<option value='%s'%s>%s</option>" % (e(value), " selected" if value == sort else "", e(label))
+        for value, label in sort_options) + "</select></label>")
+    location_field = ""
+    if locations:
+        location_field = ("<label>Only at location <select name=loc>"
+                          "<option value=''>Every location</option>" + "".join(
+            "<option value='%s'%s>%s</option>" % (e(loc), " selected" if loc == location else "", e(loc))
+            for loc in locations) + "</select></label>")
     return ("<form method=get action='/' class=filters role=search>"
             "<label for=f-q>Search name, location or notes</label>"
             "<input id=f-q type=search name=q maxlength=100 value='" + e(q) + "'>"
             "<label><input type=checkbox name=flagged value=1" + (" checked" if only_flagged else "") +
             "> Only products that need attention</label>"
-            "<label><input type=checkbox name=sort value=expiry" + (" checked" if sort == "expiry" else "") +
-            "> Soonest expiry first</label>"
+            + sort_field + location_field +
             "<button>Apply</button> <a href='/'>Clear</a></form>")
 
 
@@ -158,12 +207,14 @@ def page_number(text):
     return int(text) if text.isascii() and text.isdigit() and len(text) < 9 else 1
 
 
-def list_args(q, only_flagged, sort, n=1):
+def list_args(q, only_flagged, sort, n=1, location=""):
     args = [("q", q)] if q else []
     if only_flagged:
         args.append(("flagged", "1"))
     if sort:
         args.append(("sort", sort))
+    if location:
+        args.append(("loc", location))
     if n > 1:
         args.append(("page", str(n)))
     return args
@@ -174,14 +225,14 @@ def list_state(values):
     def one(key):
         got = values.get(key) or [""]
         return got[0] if isinstance(got, list) else got
-    return (one("q")[:100], one("flagged") == "1", "expiry" if one("sort") == "expiry" else "",
-            page_number(one("page")))
+    return (one("q")[:100], one("flagged") == "1", sort_key(one("sort")),
+            page_number(one("page")), one("loc")[:200])
 
 
-def page_links(q, only_flagged, sort, page, pages):
+def page_links(q, only_flagged, sort, page, pages, location=""):
     """Previous/next links that keep the search and filters."""
     def href(n):
-        args = list_args(q, only_flagged, sort, n)
+        args = list_args(q, only_flagged, sort, n, location)
         return "/?" + urlencode(args) if args else "/"
     parts = []
     if page > 1:
@@ -196,7 +247,7 @@ def render_list(items, token='', view=None):
     if not items:
         return "<p>No items yet. <a href='/add'>Add the first one.</a></p>"
     out = []
-    back = "?" + urlencode(list_args(*view)) if view and list_args(*view) else ""
+    back = "?" + urlencode(list_args(*view[:4], location=view[4])) if view and list_args(*view[:4], location=view[4]) else ""
     for it in items:
         fl = db.flags(it)
         chips = "".join("<span class='flag%s'>%s</span>" % (
@@ -353,22 +404,35 @@ def make_handler(data_dir, allowed_hosts=()):
                     qs = parse_qs(urlparse(self.path).query)
                     q = (qs.get("q") or [""])[0][:100]
                     flagged = (qs.get("flagged") or [""])[0] == "1"
-                    sort = "expiry" if (qs.get("sort") or [""])[0] == "expiry" else ""
-                    all_items = db.active_items(con)
-                    shown = filter_items(all_items, q, flagged, sort)
-                    body = filter_form(q, flagged, sort) if all_items else ""
-                    if all_items and not shown:
+                    sort = sort_key((qs.get("sort") or [""])[0])
+                    loc = (qs.get("loc") or [""])[0][:200]
+                    total_active = con.execute(
+                        "SELECT COUNT(*) FROM items WHERE retired_on IS NULL").fetchone()[0]
+                    wanted = max(page_number((qs.get("page") or ["1"])[0]), 1)
+                    count, rows = db.query_active_items(con, q, flagged, sort, limit=PAGE_SIZE,
+                                                        offset=(wanted - 1) * PAGE_SIZE, location=loc)
+                    pages = max(1, -(-count // PAGE_SIZE))
+                    number = min(wanted, pages)
+                    if number != wanted:
+                        count, rows = db.query_active_items(con, q, flagged, sort, limit=PAGE_SIZE,
+                                                            offset=(number - 1) * PAGE_SIZE, location=loc)
+                    locations = known_locations([r for r in con.execute(
+                        "SELECT DISTINCT location FROM items WHERE retired_on IS NULL")])
+                    body = filter_form(q, flagged, sort, loc, locations) if total_active else ""
+                    if total_active and not count:
                         body += "<p>No products match. <a href='/'>Clear the filters.</a></p>"
                     else:
-                        pages = max(1, -(-len(shown) // PAGE_SIZE))
-                        number = min(max(page_number((qs.get("page") or ["1"])[0]), 1), pages)
+                        if total_active and (q or flagged or loc):
+                            body += ("<p>%d of %d products match. <a href='/review?%s'>Print this view</a></p>"
+                                     % (count, total_active,
+                                        e(urlencode(list_args(q, flagged, sort, location=loc)))))
                         first = (number - 1) * PAGE_SIZE
                         if pages > 1:
                             body += "<p>Showing %d-%d of %d products.</p>" % (
-                                first + 1, min(first + PAGE_SIZE, len(shown)), len(shown))
-                        body += render_list(shown[first:first + PAGE_SIZE], token, (q, flagged, sort, number))
+                                first + 1, min(first + PAGE_SIZE, count), count)
+                        body += render_list(rows, token, (q, flagged, sort, number, loc))
                         if pages > 1:
-                            body += page_links(q, flagged, sort, number, pages)
+                            body += page_links(q, flagged, sort, number, pages, loc)
                     self.send(200, page("Chemical cabinet", body), extra=cookie)
                 elif path == "/add":
                     self.send(200, page("Add item", add_form(token)), extra=cookie)
@@ -382,7 +446,14 @@ def make_handler(data_dir, allowed_hosts=()):
                     self.send(200, items_csv(db.active_items(con)), "text/csv; charset=utf-8",
                               extra=[("Content-Disposition", "attachment; filename=chemical-cabinet.csv")])
                 elif path == "/review":
-                    self.send(200, page("Review sheet", review_sheet(db.active_items(con))))
+                    qs = parse_qs(urlparse(self.path).query)
+                    rq = (qs.get("q") or [""])[0][:100]
+                    rflag = (qs.get("flagged") or [""])[0] == "1"
+                    rsort = sort_key((qs.get("sort") or [""])[0])
+                    rloc = (qs.get("loc") or [""])[0][:200]
+                    self.send(200, page("Review sheet",
+                                        review_sheet(filter_items(db.active_items(con), rq, rflag, rsort, rloc),
+                                                     rq, rflag, rsort, rloc)))
                 elif path == "/log":
                     rows = db.retirement_log(con)
                     body = "".join("<div class=card><b>%s</b> - %s<br>%s<br>%s</div>" % (
