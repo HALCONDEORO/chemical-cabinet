@@ -4,6 +4,7 @@
 
 ## 0.1.1 - 2026-11-15
 
+- Editing a product from a search, filter or page now returns to that same view after saving, and the edit page has a "Back to the list" link.
 - The cabinet page shows 100 products per page with Previous/Next links that keep the search, filter and sort; it says which range is shown.
 - The backup command prints one clear `error:` line and exits with status 1 when it refuses something (for example restoring onto a folder that exists), instead of a Python traceback.
 - Filter checkboxes and the Clear link now have 44px touch targets.

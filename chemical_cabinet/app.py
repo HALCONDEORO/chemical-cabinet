@@ -151,16 +151,30 @@ def page_number(text):
     return int(text) if text.isascii() and text.isdigit() and len(text) < 9 else 1
 
 
+def list_args(q, only_flagged, sort, n=1):
+    args = [("q", q)] if q else []
+    if only_flagged:
+        args.append(("flagged", "1"))
+    if sort:
+        args.append(("sort", sort))
+    if n > 1:
+        args.append(("page", str(n)))
+    return args
+
+
+def list_state(values):
+    """Search, filter, sort and page from request values, re-validated."""
+    def one(key):
+        got = values.get(key) or [""]
+        return got[0] if isinstance(got, list) else got
+    return (one("q")[:100], one("flagged") == "1", "expiry" if one("sort") == "expiry" else "",
+            page_number(one("page")))
+
+
 def page_links(q, only_flagged, sort, page, pages):
     """Previous/next links that keep the search and filters."""
     def href(n):
-        args = [("q", q)] if q else []
-        if only_flagged:
-            args.append(("flagged", "1"))
-        if sort:
-            args.append(("sort", sort))
-        if n > 1:
-            args.append(("page", str(n)))
+        args = list_args(q, only_flagged, sort, n)
         return "/?" + urlencode(args) if args else "/"
     parts = []
     if page > 1:
@@ -171,10 +185,11 @@ def page_links(q, only_flagged, sort, page, pages):
     return "<div class=pages role=navigation aria-label='Pages of products'>" + " ".join(parts) + "</div>"
 
 
-def render_list(items, token=''):
+def render_list(items, token='', view=None):
     if not items:
         return "<p>No items yet. <a href='/add'>Add the first one.</a></p>"
     out = []
+    back = "?" + urlencode(list_args(*view)) if view and list_args(*view) else ""
     for it in items:
         fl = db.flags(it)
         chips = "".join("<span class='flag%s'>%s</span>" % (
@@ -183,20 +198,24 @@ def render_list(items, token=''):
         sds = " <a href='/files/%s'>Safety data sheet</a>" % e(it["sds"]) if it["sds"] else ""
         out.append(
             "<div class=card><b>%s</b> %s<br>%s%s<br>Where: %s | Qty: %s | Expires: %s%s"
-            "<br><a class=edit href='/edit/%d'>Edit</a><details><summary>Retire this product</summary>"
+            "<br><a class=edit href='/edit/%d%s'>Edit</a><details><summary>Retire this product</summary>"
             "<form method=post action='/retire/%d'><input type=hidden name=csrf value='%s'><input name=reason placeholder='Reason' aria-label='Reason for retiring'>"
             "<input name=method placeholder='How it was disposed of' aria-label='How it was disposed of'><button>Retire</button></form></details></div>"
             % (e(it["name"]), chips, photo, e(it["notes"]), e(it["location"]), e(it["quantity"]),
-               e(it["expires_on"] or "?"), sds, it["id"], it["id"], token))
+               e(it["expires_on"] or "?"), sds, it["id"], e(back), it["id"], token))
     return "".join(out)
 
 
-def add_form(token, item=None):
+def add_form(token, item=None, view=None):
     v = (lambda k: e(item[k] or "")) if item else (lambda k: "")
     action = "/edit/%d" % item["id"] if item else "/add"
     keep = (" (leave empty to keep the current file)" if item else "")
-    return ("<form method=post action='" + action + "' enctype='multipart/form-data'>"
-            "<input type=hidden name=csrf value='" + token + "'>"
+    args = list_args(*view) if view else []
+    hidden = "".join("<input type=hidden name='%s' value='%s'>" % (k, e(val)) for k, val in args)
+    back = ("<p><a href='/?%s'>Back to the list</a></p>" % e(urlencode(args)) if args
+            else "<p><a href='/'>Back to the list</a></p>") if item else ""
+    return (back + "<form method=post action='" + action + "' enctype='multipart/form-data'>"
+            "<input type=hidden name=csrf value='" + token + "'>" + hidden +
             "<label for=f-name>Name</label><input id=f-name name=name required autocomplete=off value='" + v("name") + "'>"
             "<label for=f-loc>Location</label><input id=f-loc name=location value='" + v("location") + "'>"
             "<label for=f-qty>Quantity</label><input id=f-qty name=quantity value='" + v("quantity") + "'>"
@@ -335,7 +354,7 @@ def make_handler(data_dir, allowed_hosts=()):
                         if pages > 1:
                             body += "<p>Showing %d-%d of %d products.</p>" % (
                                 first + 1, min(first + PAGE_SIZE, len(shown)), len(shown))
-                        body += render_list(shown[first:first + PAGE_SIZE], token)
+                        body += render_list(shown[first:first + PAGE_SIZE], token, (q, flagged, sort, number))
                         if pages > 1:
                             body += page_links(q, flagged, sort, number, pages)
                     self.send(200, page("Chemical cabinet", body), extra=cookie)
@@ -345,7 +364,8 @@ def make_handler(data_dir, allowed_hosts=()):
                     it = db.get_item(con, int(path[6:]))
                     if it is None or it["retired_on"]:
                         return self.send(404, b"not found", "text/plain")
-                    self.send(200, page("Edit item", add_form(token, it)), extra=cookie)
+                    view = list_state(parse_qs(urlparse(self.path).query))
+                    self.send(200, page("Edit item", add_form(token, it, view)), extra=cookie)
                 elif path == "/export.csv":
                     self.send(200, items_csv(db.active_items(con)), "text/csv; charset=utf-8",
                               extra=[("Content-Disposition", "attachment; filename=chemical-cabinet.csv")])
@@ -428,7 +448,8 @@ def make_handler(data_dir, allowed_hosts=()):
                         raise
                     if old is not None:
                         remove_files(old["photo"] if photo else None, old["sds"] if sds else None)
-                    self.redirect("/")
+                    args = list_args(*list_state(fields))
+                    self.redirect("/?" + urlencode(args) if args else "/")
                 elif path.startswith("/retire/"):
                     form = {k: v[0] for k, v in parse_qs(body.decode("utf-8", "replace")).items()}
                     if not self.csrf_ok(form.get("csrf")):
