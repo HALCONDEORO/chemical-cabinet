@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>chemical-cabinet: a free chemical cupboard inventory</title>
+<meta name="description" content="Free, self-hosted inventory for the chemical products in a cupboard: photos, safety data sheets, expiry checks and a disposal log. For associations and small businesses.">
+<style>
+:root{--ink:#16202a;--mute:#52606d;--bg:#f7f9fb;--card:#fff;--line:#d9e2ec;--brand:#1d4ed8;--warn:#fde68a}
+*{box-sizing:border-box}
+body{margin:0;font:17px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);background:var(--bg)}
+.wrap{max-width:60rem;margin:auto;padding:0 1.25rem}
+header{background:linear-gradient(135deg,#0b1f4d,#1d4ed8);color:#fff;padding:3.5rem 0 3rem}
+header h1{font-size:clamp(2rem,6vw,3.2rem);margin:0 0 .5rem;line-height:1.15}
+header p{font-size:1.2rem;max-width:38rem;margin:.3rem 0 1.5rem;color:#dbe7ff}
+.btn{display:inline-block;background:#fff;color:#0b1f4d;padding:.7rem 1.2rem;border-radius:.5rem;font-weight:600;text-decoration:none;margin:.2rem .5rem .2rem 0}
+.btn.alt{background:transparent;color:#fff;border:1px solid #9bb7ff}
+section{padding:2.5rem 0;border-bottom:1px solid var(--line)}
+h2{font-size:1.6rem;margin:0 0 1rem}
+.grid{display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(12.5rem,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:.7rem;padding:1.1rem}
+.card h3{margin:.1rem 0 .4rem;font-size:1.1rem}
+.shots{display:grid;gap:1.5rem;grid-template-columns:1fr;align-items:start}
+@media(min-width:760px){.shots{grid-template-columns:2fr 1fr}}
+.shots img{width:100%;height:auto;border:1px solid var(--line);border-radius:.7rem;background:#fff}
+figcaption{color:var(--mute);font-size:.9rem;margin-top:.4rem}
+pre{background:#0f172a;color:#e2e8f0;padding:1rem;border-radius:.6rem;overflow:auto;font-size:.95rem}
+.note{background:#fffbeb;border:1px solid #f5d98b;border-radius:.6rem;padding:1rem}
+table{border-collapse:collapse;width:100%;font-size:.95rem;background:#fff}
+th,td{border:1px solid var(--line);padding:.5rem .6rem;text-align:left;vertical-align:top}
+th{background:#eef2f7}
+.tablewrap{overflow-x:auto}
+a{color:var(--brand)}
+footer{padding:2rem 0;color:var(--mute);font-size:.95rem}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+<h1>chemical-cabinet</h1>
+<p>A free inventory for the cleaning and chemical products in your cupboard. Photo, safety data sheet, expiry date and a disposal log, from your phone.</p>
+<a class="btn" href="https://github.com/HALCONDEORO/chemical-cabinet">View on GitHub</a>
+<a class="btn alt" href="#run">Run it</a>
+</div></header>
+<main class="wrap">
+<section>
+<h2>What it does</h2>
+<div class="grid">
+<div class="card"><h3>One page per cupboard</h3><p>List every product with where it is kept, quantity, opened and expiry dates.</p></div>
+<div class="card"><h3>Photo and safety data sheet</h3><p>Take the photo from your phone. Attach the PDF safety data sheet to the product so it is one tap away.</p></div>
+<div class="card"><h3>Reminders on the page</h3><p>Items are flagged when expired, expiring within 30 days, or missing an expiry date, photo or safety data sheet.</p></div>
+<div class="card"><h3>Disposal log</h3><p>Retire a product with the reason and how it was disposed of. The log keeps the history.</p></div>
+</div>
+</section>
+<section>
+<h2>What it looks like</h2>
+<div class="shots">
+<figure><img src="assets/app-desktop.png" alt="Cabinet page on a desktop browser with demo products and expiry flags"><figcaption>Desktop. Demo data only.</figcaption></figure>
+<figure><img src="assets/app-mobile.png" alt="Cabinet page on a phone with demo products and expiry flags"><figcaption>Phone. Demo data only.</figcaption></figure>
+</div>
+</section>
+<section id="run">
+<h2>Run it</h2>
+<p>Python 3.9 or newer. No packages to install, no accounts, no external services.</p>
+<pre>git clone https://github.com/HALCONDEORO/chemical-cabinet
+cd chemical-cabinet
+python -m chemical_cabinet --data ./data --port 8080</pre>
+<p>Open <code>http://localhost:8080</code>. Everything is stored in the <code>data</code> folder: copy it to back up.</p>
+<div class="note"><b>No login.</b> The app has no accounts. Keep it on a trusted network, or put it behind a reverse proxy that does authentication and HTTPS. Do not publish it to the internet as is.</div>
+</section>
+<section>
+<h2>What it is not</h2>
+<p>It is a tracking aid. It does not check legal compliance, does not tell you which products are safe to store together, and does not replace the manufacturer's safety data sheet, a written risk assessment or your national regulator's guidance.</p>
+</section>
+<section>
+<h2>Other open source tools</h2>
+<p>Several free chemical inventory tools already exist, mostly built for university labs. If you run a lab, look at them first. This project aims at something smaller: one cupboard, no database server, nothing to install. We read the others for ideas only and copied none of their code, because most use GPL or AGPL licenses.</p>
+<div class="tablewrap"><table>
+<tr><th>Project</th><th>Aimed at</th><th>License (as listed on its page)</th></tr>
+<tr><td><a href="https://github.com/ICIQ-DMP/open-enventory">open_enventory</a></td><td>Labs: inventory and electronic lab notebook (PHP)</td><td>AGPL (per the US fork listing)</td></tr>
+<tr><td><a href="https://github.com/tbellembois/gochimitheque">gochimitheque</a></td><td>Labs (Go)</td><td>GPL v3</td></tr>
+<tr><td><a href="https://github.com/GetPretzel/Pretzel">Pretzel</a></td><td>Hazardous chemical stock, desktop app</td><td>GPL v3</td></tr>
+<tr><td><a href="https://github.com/projectcims/tuda.cims">TuDa.CIMS</a></td><td>University chemical stock</td><td>MIT</td></tr>
+<tr><td><a href="https://github.com/hitaishi2222/lab-inventory">lab-inventory</a></td><td>Lab equipment and consumables</td><td>MIT</td></tr>
+<tr><td><a href="https://github.com/tmorrell/cheminv">cheminv</a></td><td>Lab chemicals by location (MySQL)</td><td>CC BY-NC-SA 3.0</td></tr>
+</table></div>
+<p>The Irish Health and Safety Authority also publishes a <a href="https://www.hsa.ie/eng/publications_and_forms/publications/chemical_and_hazardous_substances/chemical_inventory_template/">chemical inventory template</a> as a spreadsheet. Details are in <a href="https://github.com/HALCONDEORO/chemical-cabinet/blob/main/docs/ALTERNATIVES.md">docs/ALTERNATIVES.md</a>. This list is a quick look, not a complete survey.</p>
+</section>
+</main>
+<footer><div class="wrap">MIT licensed. <a href="https://github.com/HALCONDEORO/chemical-cabinet">Source and issues on GitHub</a>.</div></footer>
+</body>
+</html>
