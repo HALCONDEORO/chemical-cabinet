@@ -326,6 +326,9 @@ def make_handler(data_dir, allowed_hosts=()):
                     except ValueError as exc:
                         remove_files(photo, sds)
                         return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
+                    except Exception:
+                        remove_files(photo, sds)
+                        raise
                     self.redirect("/")
                 elif path.startswith("/edit/") and path[6:].isdigit():
                     fields, files = parse_multipart(self.headers.get("Content-Type", ""), body)
@@ -345,6 +348,9 @@ def make_handler(data_dir, allowed_hosts=()):
                     except ValueError as exc:
                         remove_files(photo, sds)
                         return self.send(400, page("Error", "<p>%s</p>" % e(exc)))
+                    except Exception:
+                        remove_files(photo, sds)
+                        raise
                     if old is not None:
                         remove_files(old["photo"] if photo else None, old["sds"] if sds else None)
                     self.redirect("/")
