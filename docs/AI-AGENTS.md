@@ -43,12 +43,12 @@ Add `"--allow-write"` to `args` only if you want the assistant to add or retire 
 
 Text fields are limited to 500 characters; unknown arguments and bad dates are rejected.
 
-## Example session (real output, demo data)
+## Example session (synthetic records only)
 
 Input, one JSON message per line:
 
 ```
-{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"demo","version":"0"}}}
+{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"demo","version":"0"}}}
 {"jsonrpc":"2.0","method":"notifications/initialized"}
 {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"review","arguments":{}}}
 ```
@@ -59,13 +59,35 @@ The `initialize` reply:
 {"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "chemical-cabinet", "version": "0.1.1"}, "instructions": "Read-only inventory records. Does not advise on mixing or storing chemicals."}}
 ```
 
-The `review` result lists each flagged product, for example:
+The `review` reply is a JSON-RPC envelope. Inventory JSON is inside
+`result.content[0].text` as a string, not directly inside `result`.
+Parse that first text block separately. For an otherwise empty test cabinet
+containing only Example B from [demo-records.json](examples/demo-records.json),
+the decoded text is:
 
+```json
+[
+  {
+    "id": 1,
+    "name": "Example cleaner B (demo)",
+    "location": "Shelf B (demo)",
+    "quantity": "1 bottle",
+    "notes": "Invented training record (demo)",
+    "opened_on": null,
+    "expires_on": null,
+    "has_photo": false,
+    "has_safety_data_sheet": false,
+    "flags": ["no expiry date", "no safety data sheet", "no photo"]
+  }
+]
 ```
-{"id": 1, "name": "Example all-purpose cleaner (demo)", "location": "Shelf 1", "quantity": "2 x 5 L",
- "expires_on": "2025-03-01", "has_photo": false, "has_safety_data_sheet": true,
- "flags": ["expired", "no photo"]}
-```
+
+This example is not the whole JSON-RPC reply. An empty cabinet returns `[]` in
+that text block. Do not load demo records into your real cabinet just to try the
+protocol. A successful tool call has `result.isError: false`; a tool refusal can
+have `result.isError: true` even though the JSON-RPC exchange itself succeeded.
+Malformed calls can instead return a top-level `error`. Inspect these fields
+rather than assuming that any reply means the requested change was made.
 
 ## Long lists
 
