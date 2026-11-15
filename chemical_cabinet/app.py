@@ -145,6 +145,12 @@ def filter_form(q, only_flagged, sort):
 PAGE_SIZE = 100
 
 
+def page_number(text):
+    """A page number from ?page=. Only ASCII digits count: str.isdigit() also accepts
+    characters such as superscript two that int() rejects."""
+    return int(text) if text.isascii() and text.isdigit() and len(text) < 9 else 1
+
+
 def page_links(q, only_flagged, sort, page, pages):
     """Previous/next links that keep the search and filters."""
     def href(n):
@@ -324,8 +330,7 @@ def make_handler(data_dir, allowed_hosts=()):
                         body += "<p>No products match. <a href='/'>Clear the filters.</a></p>"
                     else:
                         pages = max(1, -(-len(shown) // PAGE_SIZE))
-                        digits = (qs.get("page") or ["1"])[0]
-                        number = min(max(int(digits), 1), pages) if digits.isdigit() and len(digits) < 9 else 1
+                        number = min(max(page_number((qs.get("page") or ["1"])[0]), 1), pages)
                         first = (number - 1) * PAGE_SIZE
                         if pages > 1:
                             body += "<p>Showing %d-%d of %d products.</p>" % (

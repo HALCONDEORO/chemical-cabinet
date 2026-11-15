@@ -55,7 +55,7 @@ class PagingTest(unittest.TestCase):
 
     def test_odd_page_values_fall_back_safely(self):
         self.fill(2 * app.PAGE_SIZE + 20)
-        for value in ("0", "-3", "abc", "9" * 30, "999", "", "1.5"):
+        for value in ("0", "-3", "abc", "9" * 30, "999", "", "1.5", "%C2%B2", "%DB%B3", "%D9%A2", "%EF%BC%92", "%E2%80%83"):
             with self.subTest(page=value):
                 html = self.get("?page=" + value)
                 self.assertTrue(self.names(html))
