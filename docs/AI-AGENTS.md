@@ -56,7 +56,7 @@ Input, one JSON message per line:
 The `initialize` reply:
 
 ```
-{"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "chemical-cabinet", "version": "0.1.0"}, "instructions": "Read-only inventory records. Does not advise on mixing or storing chemicals."}}
+{"jsonrpc": "2.0", "id": 1, "result": {"protocolVersion": "2025-06-18", "capabilities": {"tools": {}}, "serverInfo": {"name": "chemical-cabinet", "version": "0.1.1"}, "instructions": "Read-only inventory records. Does not advise on mixing or storing chemicals."}}
 ```
 
 The `review` result lists each flagged product, for example:

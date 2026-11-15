@@ -79,7 +79,7 @@ python -m unittest discover -s tests -v
 
 ## Status
 
-Early version (0.1). Ideas welcome as issues: export to CSV, a printable review sheet, translations, optional login.
+Early version (0.1.1). A tracking aid, not compliance advice. Ideas welcome as issues: translations, an optional login, paging the cabinet page for very long lists.
 
 ## License
 
