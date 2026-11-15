@@ -1,7 +1,15 @@
 """SQLite storage and the review rules. Standard library only."""
 import re
 import sqlite3
+import unicodedata
 from datetime import date, timedelta
+
+
+def fold(text):
+    """Lowercase without diacritic marks, so a search typed without accents
+    still finds them: 'lejia' finds 'Lejía', 'munchen' finds 'München'."""
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower())
+                   if not unicodedata.combining(c))
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS items (
@@ -36,6 +44,7 @@ def connect(path):
     con.row_factory = sqlite3.Row
     con.execute("PRAGMA foreign_keys = ON")
     con.create_function("py_lower", 1, lambda value: value.lower(), deterministic=True)
+    con.create_function("py_fold", 1, lambda value: fold(value), deterministic=True)
     con.create_function("expiry_day", 1, _expiry_day, deterministic=True)
     con.create_function("expiry_group", 1, _expiry_group, deterministic=True)
     con.create_function("expiry_invalid", 1, _expiry_invalid, deterministic=True)
@@ -263,7 +272,7 @@ def query_active_items(con, q="", only_flagged=False, sort="", today=None,
     No mutation of legacy values, quantity interpretation or full-table fetch.
     """
     today = date.fromisoformat(_day(today))
-    q = _text(q, "query").lower()[:100]
+    q = fold(_text(q, "query"))[:100]
     if not isinstance(location, str) or "\x00" in location:
         raise ValueError("location filter must be text without NUL characters")
     location = location[:200]
@@ -274,7 +283,7 @@ def query_active_items(con, q="", only_flagged=False, sort="", today=None,
     where = ["retired_on IS NULL"]
     params = []
     if q:
-        where.append("instr(py_lower(name || ' ' || location || ' ' || notes), ?) > 0")
+        where.append("instr(py_fold(name || ' ' || location || ' ' || notes), ?) > 0")
         params.append(q)
     if location:
         where.append("location = ?")

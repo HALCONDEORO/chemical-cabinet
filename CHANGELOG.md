@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Uploads: `python -m chemical_cabinet.orphans --data /absolute/path` lists uploaded files that no product refers to, and referenced files that are missing. It is read-only (nothing is deleted or moved) and reports files younger than an hour as recent, not as orphans, because an upload may still be waiting for its database row. Simultaneous edits of the same product can leave unreferenced uploads; they only use disk space.
+- Search: typing without accents now finds accented text (`lejia` finds `Lejía`). Case and accent marks are ignored in the name, location and notes; the order of results and the exact location filter do not change.
 
 - CSV import: `python -m chemical_cabinet.csv_import` reads a CSV file into the cabinet. It previews by default and writes only with `--apply`; the whole file is checked first and nothing is imported if any row is invalid; see docs/CSV-IMPORT.md for the columns, the demo file and the limits.
 

@@ -136,11 +136,11 @@ def sort_key(text):
 
 
 def filter_items(items, q="", only_flagged=False, sort="", location=""):
-    q = (q or "").strip().lower()[:100]
+    q = db.fold((q or "").strip())[:100]
     location = (location or "")[:200]
     out = []
     for it in items:
-        if q and q not in " ".join((it["name"], it["location"], it["notes"])).lower():
+        if q and q not in db.fold(" ".join((it["name"], it["location"], it["notes"]))):
             continue
         if only_flagged and not db.flags(it):
             continue
