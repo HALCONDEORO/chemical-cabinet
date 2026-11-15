@@ -5,9 +5,30 @@ application, not a website where you create an account. Someone must start it on
 that computer before the browser can use it. You do not need an AI assistant.
 
 If Python and the project files are not ready, follow
-[Run it](../README.md#run-it) first. Ask someone you trust for help with that step
+[Local installation](LOCAL-INSTALL.md) first. Ask someone you trust for help with that step
 if running a command is unfamiliar. Keep the default local-only address for your
 first session. There is no login; do not share the port on the internet.
+
+## The simpler local start
+
+If you already have a built `chemical-cabinet.pyz` from the reviewed source, run:
+
+```text
+python /path/to/chemical-cabinet.pyz start
+```
+
+Python is still required. This uses `chemical-cabinet-data` in your home folder,
+prints the actual data folder and local URL, then asks a browser to open after
+successfully binding the port. If it cannot open one, copy the printed URL into
+your browser; `start --no-browser` skips the browser request. Keep the command
+window open. There is no universal double-click installer.
+
+Already have a cabinet? Use `start --data "/absolute/path/to/your cabinet"`
+instead, or you may open an empty default cabinet. For an isolated practice
+session use a **different absolute** `--data` folder. Do not practise retirement
+or edits on your real records. See [Local installation](LOCAL-INSTALL.md) for
+building the portable file and the tested-platform limits. The source command
+below remains an alternative; its relative-path behavior differs.
 
 ## Before adding your real records
 

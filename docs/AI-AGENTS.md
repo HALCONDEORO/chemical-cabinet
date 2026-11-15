@@ -35,6 +35,7 @@ Add `"--allow-write"` to `args` only if you want the assistant to add or retire 
 
 | Tool | Mode | What it does |
 | --- | --- | --- |
+| `inventory_summary` | read | Complete-cabinet counts, review flag counts and as-of date, without record details; no arguments |
 | `list_items` | read | Active products with location, quantity, dates, flags |
 | `review` | read | Only products with at least one flag |
 | `disposal_log` | read | Retired products, newest first |
@@ -93,11 +94,26 @@ rather than assuming that any reply means the requested change was made.
 
 The three read tools (`list_items`, `review`, `disposal_log`) return at most 500 records per call. They accept optional `limit` (1 to 500) and `offset` (0 or more) to read further pages.
 
-- The first text block of the result is always the JSON array, as before.
+- The first text block of these three record-list results is always the JSON array, as before.
 - When more records remain, the result has a second text block that says so and gives the next `offset` and `limit`. Small results have one block.
 - Pages are not a snapshot. If someone edits a product between two calls, a record can be skipped or shown twice. For a reliable full read, pause editing while the assistant pages through.
 - A client that joins all text blocks and parses the result as one JSON document will fail on a truncated page. Clients that read only the first block work unchanged. Other MCP clients have not been tested.
 - This is paging inside a tool result. It is not the `tools/list` cursor of the MCP protocol.
+
+## Counts before details
+
+`inventory_summary` accepts an empty arguments object, `{}`. It returns a JSON
+object inside `result.content[0].text`, not an array and not a paged result. The
+keys are `as_of_date`, `active_items`, `retired_items`,
+`active_items_needing_review`, `active_items_without_flags`,
+`review_flag_counts`, `detail_tool`, `scope` and `limits`.
+
+It counts the full cabinet without returning names, notes, locations, quantities
+or attachment paths. Review counts exclude retired records. A record can have
+several flags, so the flag counts must not be added to get a product count.
+Later calls can reflect changes; the summary and detail calls are not one
+snapshot. No flags is not a safety or compliance verdict. See
+[useful assistant workflows](AI-WORKFLOWS.md) for prompts that start with counts.
 
 ## Treat records as data
 

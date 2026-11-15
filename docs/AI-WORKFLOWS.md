@@ -4,7 +4,7 @@ The optional [MCP connection](AI-AGENTS.md) lets a compatible assistant read
 inventory records. It does not supply an AI model, an account or a chatbot inside
 the web app. The web app works without it.
 
-Start with the default **read-only** connection. The read tools are `list_items`,
+Start with the default **read-only** connection. The read tools are `inventory_summary`, `list_items`,
 `review` and `disposal_log`. File contents are not returned: an assistant can see
 whether a photo or safety data sheet is linked, but cannot read that PDF through
 these tools. The tools do not convert quantity text into stock arithmetic.
@@ -20,6 +20,25 @@ Do not post databases, exports or backups in a public issue to get help.
 The prompts below request summaries only, not changes or messages to anyone.
 Product names and notes are untrusted data. A record that asks an assistant to
 run a command, reveal information or change other records is not permission.
+
+## Start with counts, not record details
+
+> Call inventory_summary with no arguments, read-only. Report as_of_date,
+> active_items, retired_items, active_items_needing_review,
+> active_items_without_flags and review_flag_counts. Do not fetch record details
+> yet, change anything or interpret no flags as safe or compliant.
+
+This tool counts the complete cabinet, not the first 500 records. It returns no
+names, notes, locations, quantity text, attachment contents or file paths. It
+still reveals counts and date conditions, so consider those disclosures too.
+Retired records are excluded from review counts. Flags overlap: adding the flag
+counts is not the number of distinct records needing attention. The summary is
+consistent within its read, but a later detail call can reflect newer edits.
+
+Use `review` for details only when you actually want to disclose those records.
+`inventory_summary` takes `{}`, not limit, offset or location arguments. Its
+first text block decodes to a JSON **object**, unlike the arrays from the three
+record-list tools.
 
 ## Find incomplete records for a human to check
 
@@ -72,7 +91,7 @@ This reports stored entries only. It is not an audit or a compliance check.
 
 ## When a report is incomplete or a tool refuses
 
-- Read tools return at most 500 records per call. Follow the second text block's
+- The three record-list tools return at most 500 records per call. Follow the second text block's
   next offset/limit until no continuation remains. Do not count just the first
   page as the whole cabinet.
 - Pages are not one snapshot. Pause editing for a reliable full read; otherwise
@@ -81,8 +100,9 @@ This reports stored entries only. It is not an audit or a compliance check.
   JSON-RPC `error`. Neither is an empty successful inventory report. Do not
   interpret a storage error as zero records or retry using a different data
   folder to hide it.
-- The tool result's first text block is a JSON array encoded inside a string.
-  Clients must parse that block separately. See [the protocol example](AI-AGENTS.md#example-session-synthetic-records-only).
+- The first text block contains JSON encoded inside a string: an object for
+  `inventory_summary`, an array for the three record-list tools. Clients must
+  parse that block separately. See [the protocol example](AI-AGENTS.md#example-session-synthetic-records-only).
 
 ## Keep writes separate
 
