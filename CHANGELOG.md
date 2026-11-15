@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Easier local start: `python -m chemical_cabinet.launcher` (or `start` in the portable file built by `python tools/build_zipapp.py`) serves on localhost only, uses a stable data folder in your home directory unless you pass an absolute `--data`, opens your browser after the port is bound (`--no-browser` to skip) and refuses a busy port. Standard library only; the portable file holds no data. Python must still be installed. Exercised on Linux with Python 3.10 only; see docs/LOCAL-INSTALL.md.
+
 - Add and edit: when a field is not valid, the form comes back with what you typed and a message that names the field, instead of a bare error page. A chosen photo or data sheet is not kept; choose it again.
 - MCP: new read-only `inventory_summary` tool for AI agents. It returns full counts (active, flagged, expired, expiring soon, invalid or missing dates) and points to review for record details, with no product names, notes or file paths by default and no 500-row truncation.
 
