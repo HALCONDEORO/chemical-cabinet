@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Edit a product (name, place, quantity, dates; new photo or sheet replaces the old one only if given).
 - CSV export (`/export.csv`) and a printable review sheet (`/review`).
 - Form fields have labels; pages have a main landmark, a named navigation and a skip link.
 - Test that starts the real MCP server process and talks to it over stdio.
