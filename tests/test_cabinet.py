@@ -207,6 +207,26 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.req("GET", "/edit/99", headers=h)[0], 404)
         self.assertEqual(self.req("GET", "/edit/1", headers={"Host": "evil.example"})[0], 403)
 
+    def test_failed_save_leaves_no_orphan_files(self):
+        tok = self.token()
+        files_dir = os.path.join(self.tmp.name, "files")
+        png = b"\x89PNG\r\n\x1a\n" + b"0" * 20
+        # valid photo, bad date -> 400 and no file left behind
+        r = self.add({"name": "x", "expires_on": "nope"}, {"photo": ("p.png", "image/png", png)}, tok)
+        self.assertEqual(r[0], 400)
+        self.assertEqual(os.listdir(files_dir), [])
+        # valid photo, invalid sheet -> 400 and no file left behind
+        r = self.add({"name": "y"}, {"photo": ("p.png", "image/png", png),
+                                     "sds": ("s.pdf", "application/pdf", b"not a pdf")}, tok)
+        self.assertEqual(r[0], 400)
+        self.assertEqual(os.listdir(files_dir), [])
+        # replacing a photo on edit removes the old file
+        self.assertEqual(self.add({"name": "z"}, {"photo": ("p.png", "image/png", png)}, tok)[0], 303)
+        self.assertEqual(len(os.listdir(files_dir)), 1)
+        b, ct = self.multipart({"name": "z", "csrf": tok}, {"photo": ("q.png", "image/png", png)})
+        self.assertEqual(self.post("/edit/1", b, ct, tok)[0], 303)
+        self.assertEqual(len(os.listdir(files_dir)), 1)
+
     def test_forms_have_labels(self):
         h = {"Host": "localhost:%d" % self.port}
         html_ = self.req("GET", "/add", headers=h)[1].decode()
