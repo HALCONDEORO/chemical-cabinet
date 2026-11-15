@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Uploads: `python -m chemical_cabinet.orphans --data /absolute/path` lists uploaded files that no product refers to, and referenced files that are missing. It is read-only (nothing is deleted or moved) and reports files younger than an hour as recent, not as orphans, because an upload may still be waiting for its database row. Simultaneous edits of the same product can leave unreferenced uploads; they only use disk space.
+
 - CSV import: `python -m chemical_cabinet.csv_import` reads a CSV file into the cabinet. It previews by default and writes only with `--apply`; the whole file is checked first and nothing is imported if any row is invalid; see docs/CSV-IMPORT.md for the columns, the demo file and the limits.
 
 - Easier local start: `python -m chemical_cabinet.launcher` (or `start` in the portable file built by `python tools/build_zipapp.py`) serves on localhost only, uses a stable data folder in your home directory unless you pass an absolute `--data`, opens your browser after the port is bound (`--no-browser` to skip) and refuses a busy port. Standard library only; the portable file holds no data. Python must still be installed. Exercised on Linux with Python 3.10 only; see docs/LOCAL-INSTALL.md.
