@@ -8,6 +8,8 @@ import argparse
 import json
 from itertools import islice
 import os
+from pathlib import Path
+import sqlite3
 import sys
 
 from . import __version__, db
@@ -15,6 +17,7 @@ from . import __version__, db
 PROTOCOL = "2025-06-18"
 MAX_TEXT = 500
 MAX_ITEMS = 500
+MAX_ITEM_ID = 2**63 - 1
 
 READ_TOOLS = {
     "list_items": {
@@ -56,7 +59,7 @@ WRITE_TOOLS = {
         "description": "Mark a product as retired and log the reason and disposal method.",
         "inputSchema": {
             "type": "object",
-            "properties": {"item_id": {"type": "integer", "minimum": 1}, "reason": TEXT, "method": TEXT},
+            "properties": {"item_id": {"type": "integer", "minimum": 1, "maximum": MAX_ITEM_ID}, "reason": TEXT, "method": TEXT},
             "required": ["item_id"], "additionalProperties": False},
     },
 }
@@ -64,6 +67,19 @@ WRITE_TOOLS = {
 
 class ToolError(Exception):
     pass
+
+
+def require_complete_restore(db_path):
+    """Refuse a marked cabinet before opening SQLite, including linked DB targets.
+
+    This is a restore sentinel check, not a lock against a concurrent restore.
+    Stop web and MCP processes before restoring or replacing a data directory.
+    """
+    path = Path(db_path)
+    for parent in {path.parent, path.resolve().parent}:
+        if os.path.lexists(parent / "RESTORE_INCOMPLETE"):
+            raise ToolError("data directory has a RESTORE_INCOMPLETE marker: an earlier restore "
+                            "did not finish; restore again into a new directory")
 
 
 def text_arg(args, key, required=False):
@@ -137,8 +153,8 @@ def call_tool(con, name, args, allow_write, page_info=None):
         return {"id": new_id}
     if name == "retire_item":
         item_id = args.get("item_id")
-        if not isinstance(item_id, int) or isinstance(item_id, bool) or item_id < 1:
-            raise ToolError("item_id must be a positive integer")
+        if type(item_id) is not int or not 1 <= item_id <= MAX_ITEM_ID:
+            raise ToolError("item_id must be an integer from 1 to %d" % MAX_ITEM_ID)
         try:
             db.retire_item(con, item_id, text_arg(args, "reason"), text_arg(args, "method"))
         except KeyError:
@@ -172,8 +188,16 @@ def handle(msg, db_path, allow_write):
                 or not isinstance(params.get("arguments", {}), dict)):
             return {"jsonrpc": "2.0", "id": mid,
                     "error": {"code": -32602, "message": "expected tool name and object arguments"}}
-        con = db.connect(db_path)
+        con = None
         try:
+            require_complete_restore(db_path)
+            # MCP consumes an existing web-app database; it must never bootstrap
+            # a missing file/schema or acquire write access for a read tool.
+            mode = "rw" if allow_write and params["name"] in WRITE_TOOLS else "ro"
+            uri = Path(db_path).resolve().as_uri() + "?mode=" + mode
+            con = sqlite3.connect(uri, uri=True)
+            con.row_factory = sqlite3.Row
+            con.execute("PRAGMA foreign_keys=ON")
             page_info = {}
             data = call_tool(con, params["name"], params.get("arguments", {}), allow_write, page_info)
             result = {"content": [{"type": "text", "text": json.dumps(data, indent=2)}], "isError": False}
@@ -184,8 +208,13 @@ def handle(msg, db_path, allow_write):
                     % (params["name"], page_info["next_offset"], page_info["limit"]))})
         except ToolError as exc:
             result = {"content": [{"type": "text", "text": str(exc)}], "isError": True}
+        except (sqlite3.Error, OSError):
+            result = {"content": [{"type": "text", "text": (
+                "inventory database unavailable; check the data folder and database integrity "
+                "before retrying")}], "isError": True}
         finally:
-            con.close()
+            if con is not None:
+                con.close()
     else:
         return {"jsonrpc": "2.0", "id": mid, "error": {"code": -32601, "message": "method not found"}}
     return {"jsonrpc": "2.0", "id": mid, "result": result}
@@ -214,6 +243,10 @@ def main(argv=None):
                     help="also offer add_item and retire_item (default: read-only)")
     args = ap.parse_args(argv)
     path = os.path.join(args.data, "cabinet.sqlite3")
+    try:
+        require_complete_restore(path)
+    except ToolError as exc:
+        sys.exit(str(exc))
     if not os.path.isfile(path):
         sys.exit("no database at %s: run the web app once first" % path)
     serve(path, args.allow_write)
