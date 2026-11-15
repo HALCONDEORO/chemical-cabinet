@@ -13,7 +13,7 @@ from http.cookies import SimpleCookie
 from email import policy
 from email.parser import BytesParser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urlparse
 
 from . import db
 
@@ -26,7 +26,7 @@ CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin
        "h1{font:400 clamp(34px,8vw,48px)/1.1 Georgia,'Times New Roman',serif;letter-spacing:-.04em;color:#183b40;margin:.6rem 0 1rem}"
        "a{color:#16644f;text-underline-offset:4px}a:focus-visible,summary:focus-visible,button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #a7442c;outline-offset:3px}"
        "nav{display:flex;gap:1.4rem;border-bottom:1px solid #d8e0dc;padding-bottom:.6rem}nav a{text-decoration:none;color:#183b40;font-weight:600;font-size:14px;min-height:44px;display:flex;align-items:center}"
-       ".edit{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input[type=checkbox]{width:auto;margin:0 .5rem 0 0}.filters label{font-weight:400}.filters label:first-child{font-weight:600}.filters label:not(:first-child){display:flex;align-items:center;min-height:44px}.filters a{display:inline-block;min-height:44px;line-height:44px}input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #6f8580;border-radius:6px;background:#fff;color:#183b40}"
+       ".edit{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input[type=checkbox]{width:auto;margin:0 .5rem 0 0}.filters label{font-weight:400}.filters label:first-child{font-weight:600}.filters label:not(:first-child){display:flex;align-items:center;min-height:44px}.filters a{display:inline-block;min-height:44px;line-height:44px}.pages{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;margin:1rem 0}.pager{display:inline-block;min-height:44px;line-height:44px;font-weight:600}input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #6f8580;border-radius:6px;background:#fff;color:#183b40}"
        "button{background:#183b40;color:#fff;border:0;font-weight:600;min-height:48px;cursor:pointer}button:hover{background:#16644f}"
        ".card h2,.card h3{overflow-wrap:anywhere}.card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
        ".flag{display:inline-block;margin-bottom:.3rem;background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;}"
@@ -140,6 +140,29 @@ def filter_form(q, only_flagged, sort):
             "<label><input type=checkbox name=sort value=expiry" + (" checked" if sort == "expiry" else "") +
             "> Soonest expiry first</label>"
             "<button>Apply</button> <a href='/'>Clear</a></form>")
+
+
+PAGE_SIZE = 100
+
+
+def page_links(q, only_flagged, sort, page, pages):
+    """Previous/next links that keep the search and filters."""
+    def href(n):
+        args = [("q", q)] if q else []
+        if only_flagged:
+            args.append(("flagged", "1"))
+        if sort:
+            args.append(("sort", sort))
+        if n > 1:
+            args.append(("page", str(n)))
+        return "/?" + urlencode(args) if args else "/"
+    parts = []
+    if page > 1:
+        parts.append("<a class=pager href='%s'>Previous</a>" % e(href(page - 1)))
+    parts.append("<span>Page %d of %d</span>" % (page, pages))
+    if page < pages:
+        parts.append("<a class=pager href='%s'>Next</a>" % e(href(page + 1)))
+    return "<div class=pages role=navigation aria-label='Pages of products'>" + " ".join(parts) + "</div>"
 
 
 def render_list(items, token=''):
@@ -300,7 +323,16 @@ def make_handler(data_dir, allowed_hosts=()):
                     if all_items and not shown:
                         body += "<p>No products match. <a href='/'>Clear the filters.</a></p>"
                     else:
-                        body += render_list(shown, token)
+                        pages = max(1, -(-len(shown) // PAGE_SIZE))
+                        digits = (qs.get("page") or ["1"])[0]
+                        number = min(max(int(digits), 1), pages) if digits.isdigit() and len(digits) < 9 else 1
+                        first = (number - 1) * PAGE_SIZE
+                        if pages > 1:
+                            body += "<p>Showing %d-%d of %d products.</p>" % (
+                                first + 1, min(first + PAGE_SIZE, len(shown)), len(shown))
+                        body += render_list(shown[first:first + PAGE_SIZE], token)
+                        if pages > 1:
+                            body += page_links(q, flagged, sort, number, pages)
                     self.send(200, page("Chemical cabinet", body), extra=cookie)
                 elif path == "/add":
                     self.send(200, page("Add item", add_form(token)), extra=cookie)
