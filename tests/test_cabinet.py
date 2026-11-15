@@ -227,6 +227,31 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(self.post("/edit/1", b, ct, tok)[0], 303)
         self.assertEqual(len(os.listdir(files_dir)), 1)
 
+    def test_search_filter_sort(self):
+        tok = self.token()
+        self.add({"name": "Bleach <demo>", "location": "Shelf 1", "expires_on": "2030-01-01"}, {}, tok)
+        self.add({"name": "Acid cleaner", "location": "Shelf 2", "expires_on": "2020-01-01"}, {}, tok)
+        self.add({"name": "Zeta soap", "location": "Shelf 1", "notes": "Pantry"}, {}, tok)
+        png = b"\x89PNG\r\n\x1a\n" + b"0" * 20
+        self.add({"name": "Clean record", "expires_on": "2035-01-01"},
+                 {"photo": ("p.png", "image/png", png), "sds": ("s.pdf", "application/pdf", b"%PDF-1.4 x")}, tok)
+        h = {"Host": "localhost:%d" % self.port}
+        def names(qs):
+            page = self.req("GET", "/" + qs, headers=h)[1].decode()
+            return [n for n in ("Bleach", "Acid cleaner", "Zeta soap", "Clean record") if n in page], page
+        self.assertEqual(names("")[0], ["Bleach", "Acid cleaner", "Zeta soap", "Clean record"])
+        self.assertEqual(names("?q=shelf+1")[0], ["Bleach", "Zeta soap"])
+        self.assertEqual(names("?q=PANTRY")[0], ["Zeta soap"])
+        self.assertEqual(names("?flagged=1")[0], ["Bleach", "Acid cleaner", "Zeta soap"])  # clean one hidden
+        order = names("?sort=expiry")[1]
+        self.assertLess(order.index("Acid cleaner"), order.index("Bleach"))
+        self.assertLess(order.index("Bleach"), order.index("Zeta soap"))   # no date goes last
+        none = names("?q=nothing")[1]
+        self.assertIn("No products match", none)
+        # reflected value is escaped
+        self.assertNotIn("<script>", names("?q=%3Cscript%3E")[1])
+        self.assertEqual(self.req("GET", "/?q=x", headers={"Host": "evil.example"})[0], 403)
+
     def test_forms_have_labels(self):
         h = {"Host": "localhost:%d" % self.port}
         html_ = self.req("GET", "/add", headers=h)[1].decode()
