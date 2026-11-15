@@ -5,6 +5,7 @@ needs no packages. It is read-only unless started with --allow-write. It reports
 is recorded and which review flags apply. It gives no advice on mixing or storing
 chemicals."""
 import argparse
+from datetime import date
 import json
 from itertools import islice
 import os
@@ -43,6 +44,17 @@ for _tool in READ_TOOLS.values():
     _tool["description"] += (" Optional limit/offset page records (default 500/0). "
                              "A second text block warns when more remain. "
                              "Pages are not a snapshot across concurrent edits.")
+
+# An aggregate is not a page of records. Keep its schema separate from the
+# list tools above so existing limit/offset contracts stay unchanged.
+READ_TOOLS["inventory_summary"] = {
+    "description": "Count all active and retired product records and active review flags. "
+                   "Returns no product names, notes, locations or file paths. Counts overlap: "
+                   "one active product can have several flags. Use review for record details. "
+                   "Recorded-data reminders only, not chemical or compliance advice.",
+    "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+}
+
 
 TEXT = {"type": "string", "maxLength": MAX_TEXT}
 DATE = {"type": "string", "description": "YYYY-MM-DD", "pattern": r"^\d{4}-\d{2}-\d{2}$"}
@@ -100,6 +112,41 @@ def item_dict(row):
             "has_safety_data_sheet": bool(row["sds"]), "flags": db.flags(row)}
 
 
+def inventory_summary(con):
+    """Count the complete cabinet from one SELECT, without collecting records.
+
+    Capture today once for consistent expiry boundaries across a long read.
+    SQLite keeps this statement's rows consistent; later calls can differ.
+    Do not aggregate free-text quantities, locations, names or notes.
+    """
+    today = date.today()
+    counts = {"expired": 0, "expires within %d days" % db.SOON_DAYS: 0,
+              "invalid expiry date": 0, "no expiry date": 0,
+              "no safety data sheet": 0, "no photo": 0}
+    active = retired = needs_review = 0
+    rows = con.execute("SELECT retired_on, expires_on, photo, sds FROM items")
+    try:
+        for row in rows:
+            if row["retired_on"] is not None:
+                retired += 1
+                continue
+            active += 1
+            flags = db.flags(row, today=today)
+            if flags:
+                needs_review += 1
+            for flag in flags:
+                counts[flag] = counts.get(flag, 0) + 1
+    finally:
+        rows.close()
+    return {"as_of_date": today.isoformat(), "active_items": active,
+            "retired_items": retired, "active_items_needing_review": needs_review,
+            "active_items_without_flags": active - needs_review,
+            "review_flag_counts": counts, "detail_tool": "review",
+            "scope": "All recorded products, not a page. Retired products are excluded from review counts.",
+            "limits": "Flags can overlap. No flags does not mean a product is safe or compliant. "
+                      "Later calls can reflect edits; this is not a multi-call snapshot."}
+
+
 def read_page(con, name, args, page_info):
     limit, offset = args.get("limit", MAX_ITEMS), args.get("offset", 0)
     if type(limit) is not int or not 1 <= limit <= MAX_ITEMS:
@@ -141,6 +188,8 @@ def call_tool(con, name, args, allow_write, page_info=None):
     unknown = set(args) - set(tools[name]["inputSchema"]["properties"])
     if unknown:
         raise ToolError("unexpected arguments: " + ", ".join(sorted(unknown)))
+    if name == "inventory_summary":
+        return inventory_summary(con)
     if name in READ_TOOLS:
         return read_page(con, name, args, page_info)
     if name == "add_item":
