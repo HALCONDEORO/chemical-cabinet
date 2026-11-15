@@ -26,8 +26,8 @@ CSS = ("body{font:16px/1.65 system-ui,-apple-system,'Segoe UI',sans-serif;margin
        "nav{display:flex;gap:1.4rem;border-bottom:1px solid #d8e0dc;padding-bottom:.6rem}nav a{text-decoration:none;color:#183b40;font-weight:600;font-size:14px;min-height:44px;display:flex;align-items:center}"
        "input,textarea,button{font:inherit;width:100%;box-sizing:border-box;margin:.2rem 0 .8rem;padding:.55rem .7rem;border:1px solid #d8e0dc;border-radius:6px;background:#fff;color:#183b40}"
        "button{background:#183b40;color:#fff;border:0;font-weight:600;min-height:48px;cursor:pointer}button:hover{background:#16644f}"
-       ".card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
-       ".flag{background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;white-space:nowrap}"
+       ".card h2,.card h3{overflow-wrap:anywhere}.card{background:#fff;border:1px solid #d8e0dc;border-radius:14px;padding:1rem;margin:.9rem 0}"
+       ".flag{display:inline-block;margin-bottom:.3rem;background:#f3e7c6;color:#4a3a10;border-radius:999px;padding:0 .6rem;margin-right:.3rem;font-size:.8rem;font-weight:600;}"
        ".bad{background:#f2d3c9;color:#6b2412}img{max-width:100%;border-radius:8px}"
        "summary{cursor:pointer;color:#16644f;margin-top:.6rem;min-height:44px;font-weight:600}.note{color:#657579;font-size:.85rem;border-left:3px solid #16644f;padding-left:.8rem}"
        "@media(prefers-reduced-motion:reduce){*{scroll-behavior:auto}}")
