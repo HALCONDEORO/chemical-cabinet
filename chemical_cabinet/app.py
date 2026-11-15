@@ -2,6 +2,7 @@
 trusted network or behind your own reverse proxy with authentication."""
 import argparse
 import csv
+import errno
 import io
 import hmac
 import html
@@ -9,6 +10,7 @@ import ipaddress
 import os
 import re
 import secrets
+import stat
 from http.cookies import SimpleCookie
 from email import policy
 from email.parser import BytesParser
@@ -326,7 +328,10 @@ def make_handler(data_dir, allowed_hosts=()):
     if os.path.lexists(os.path.join(data_dir, "RESTORE_INCOMPLETE")):
         raise ValueError("data directory has a RESTORE_INCOMPLETE marker: an earlier restore did not finish; restore again into a new directory")
     files_dir = os.path.join(data_dir, "files")
+    if os.path.islink(files_dir):
+        raise ValueError("data files directory must not be a symlink")
     os.makedirs(files_dir, exist_ok=True)
+    files_root = os.path.realpath(files_dir)
     db_path = os.path.join(data_dir, "cabinet.sqlite3")
     db.connect(db_path).close()
 
@@ -336,10 +341,24 @@ def make_handler(data_dir, allowed_hosts=()):
         kind, data = upload
         if kind not in allowed or not sniff_ok(kind, data):
             raise ValueError("unsupported file type")
-        name = secrets.token_hex(8) + allowed[kind]
-        with open(os.path.join(files_dir, name), "wb") as fh:
-            fh.write(data)
-        return name
+        for _ in range(5):
+            name = secrets.token_hex(8) + allowed[kind]
+            path = os.path.join(files_dir, name)
+            try:
+                fh = open(path, "xb")  # exclusive: never touches a file that already exists
+            except FileExistsError:
+                continue
+            try:
+                with fh:
+                    fh.write(data)
+            except BaseException:
+                try:
+                    os.remove(path)  # only the file this call created
+                except OSError:
+                    pass
+                raise
+            return name
+        raise OSError("could not pick a free file name")
 
     def remove_files(*names):
         for n in names:
@@ -464,11 +483,21 @@ def make_handler(data_dir, allowed_hosts=()):
                     if not SAFE_NAME.match(name):
                         return self.send(404, b"not found", "text/plain")
                     full = os.path.join(files_dir, name)
-                    if not os.path.isfile(full):
+                    if os.path.dirname(os.path.realpath(full)) != files_root:
                         return self.send(404, b"not found", "text/plain")
-                    ctype = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp",
-                             "pdf": "application/pdf"}[name.rsplit(".", 1)[1]]
-                    with open(full, "rb") as fh:
+                    try:
+                        if not stat.S_ISREG(os.lstat(full).st_mode):
+                            return self.send(404, b"not found", "text/plain")
+                        fd = os.open(full, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+                    except OSError as exc:
+                        if exc.errno in (errno.ENOENT, errno.ENOTDIR, errno.ELOOP):
+                            return self.send(404, b"not found", "text/plain")
+                        raise
+                    with os.fdopen(fd, "rb") as fh:
+                        if not stat.S_ISREG(os.fstat(fh.fileno()).st_mode):
+                            return self.send(404, b"not found", "text/plain")
+                        ctype = {"jpg": "image/jpeg", "png": "image/png", "webp": "image/webp",
+                                 "pdf": "application/pdf"}[name.rsplit(".", 1)[1]]
                         self.send(200, fh.read(), ctype)
                 else:
                     self.send(404, b"not found", "text/plain")

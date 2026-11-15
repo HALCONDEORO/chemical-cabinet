@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Uploads: a photo or data sheet is now written to a new file that cannot replace an existing one, and a failed write removes only the partial file it created, so a name collision can no longer overwrite or delete another product's sheet. Serving `/files/` refuses a symlinked or non-regular upload folder and does not follow a symlink as the last path part (checked on POSIX; this is not a defence against a local user who can change the folders).
+
 - Cabinet page: filter by exact location, sort by expiry, location, name or newest, and the printed review sheet keeps the same filters. The list is now read with one SQL query per page (search, filter, sort and paging in the database), with indexes on active products and on the disposal log. Dates that are not ISO (for example `2030-06` or text) are flagged "invalid expiry date" and kept as typed; nothing is converted or rewritten. Speed numbers in the project notes come from synthetic data, not real use.
 
 - Cabinet page: each product is an article with its own heading; the Edit, Safety data sheet and Retire controls get names that include the product name; the skip link moves focus to the main content. Checked once in headless Chrome and with structural tests; not tested with screen readers, and not a WCAG audit.
