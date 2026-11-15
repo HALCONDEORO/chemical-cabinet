@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.1 - 2026-11-15
+
 - The backup command prints one clear `error:` line and exits with status 1 when it refuses something (for example restoring onto a folder that exists), instead of a Python traceback.
 - Filter checkboxes and the Clear link now have 44px touch targets.
 - Tests that read every page's HTML for keyboard basics: skip link first, no positive tabindex, one h1, language set, every control and image named. It does not drive a real browser.
