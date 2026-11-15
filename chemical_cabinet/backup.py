@@ -130,6 +130,9 @@ def create_backup(data_dir, destination, timeout=30):
         manifest = {"format": 1, "sha256": {name: _hash(stage / name) for name in sorted(names)}}
         (stage / "manifest.json").write_text(json.dumps(manifest, sort_keys=True), encoding="utf-8")
         _verify_tree(stage)
+        # Match the verifier: metadata consumes the uncompressed budget too.
+        if sum((stage / name).stat().st_size for name in names | {"manifest.json"}) > MAX_TOTAL:
+            raise ValueError("backup including manifest exceeds size limit")
         # Current web edits can remove old files. Recheck all references at the
         # end as well as each individual copy. This detects observed races only.
         for name, (before, digest) in sources.items():
