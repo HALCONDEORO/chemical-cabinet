@@ -37,6 +37,23 @@ Python standard library only. No accounts, no external services, no tracking. MI
 
 *Demo data only.*
 
+## Blank SDS source worksheet
+
+[Open the local source worksheet](docs/sds-source-worksheet.html) to record
+references and missing information from a supplier's existing SDS. It has the
+16 section headings and a local browser print action (or “Save as PDF”, if
+provided by the browser). It makes no network requests and does not save form
+entries between visits. Print support is browser-dependent.
+
+**This is not a Safety Data Sheet and is not valid for chemical use or
+emergencies.** It supplies no hazard, first-aid, PPE, storage or disposal advice,
+does not claim regulatory compliance, and cannot replace the supplier's current
+SDS, a competent person's review or a risk assessment. Unknown fields stay
+unknown. Attach the original supplier SDS to the inventory; do not attach the
+worksheet as its substitute. The form omits the full regulatory subsection
+requirements. [HSA guidance](https://www.hsa.ie/eng/your_industry/chemicals/legislation_enforcement/reach/safety_data_sheets/)
+explains the supplier's responsibilities and SDS headings.
+
 ## Run it
 
 Python 3.9 or newer. Automated tests run on Python 3.9 and 3.12 on Linux; the full suite has also been run locally on Python 3.10 on Linux. Windows and macOS have not been tested. Python has to be installed on the computer: there is no installer and nothing is bundled.
