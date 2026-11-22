@@ -39,7 +39,7 @@ Python standard library only. No accounts, no external services, no tracking. MI
 
 ## Run it
 
-Python 3.9 or newer (the code is written for 3.9 and newer; the automated tests run on 3.12, and the launcher was also run once on 3.10 on Linux). Python has to be installed on the computer: there is no installer and nothing is bundled.
+Python 3.9 or newer. Automated tests run on Python 3.9 and 3.12 on Linux; the full suite has also been run locally on Python 3.10 on Linux. Windows and macOS have not been tested. Python has to be installed on the computer: there is no installer and nothing is bundled.
 
 ```
 python -m chemical_cabinet --data ./data --port 8080
