@@ -43,7 +43,7 @@ Python standard library only. No accounts, no external services, no tracking. MI
 references and missing information from a supplier's existing SDS. It has the
 16 section headings and a local browser print action (or “Save as PDF”, if
 provided by the browser). It makes no network requests and does not save form
-entries between visits. Print support is browser-dependent.
+entries between visits. Print support is browser-dependent. The printed warning footer has only been verified in Chromium.
 
 **This is not a Safety Data Sheet and is not valid for chemical use or
 emergencies.** It supplies no hazard, first-aid, PPE, storage or disposal advice,
